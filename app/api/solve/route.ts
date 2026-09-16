@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: process.env.GROQ_VISION_MODEL ?? 'qwen/qwen3.6-27b',
+        model: process.env.GROQ_VISION_MODEL ?? 'qwen/qwen3.8-27b',
         temperature: 0.2,
         max_completion_tokens: 1800,
         messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: [{ type: 'text', text: question ? `추가 요청: ${question}` : '이 수학 문제를 풀어주세요.' }, { type: 'image_url', image_url: { url: dataUrl } }] }],
@@ -51,3 +51,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '풀이 저장 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.' }, { status: 500 })
   }
 }
+

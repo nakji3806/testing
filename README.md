@@ -18,7 +18,7 @@
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase Project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase의 Publishable key |
 | `GROQ_API_KEY` | Groq API Key (서버 전용) |
-| `GROQ_VISION_MODEL` | 선택 사항. 기본값 `qwen/qwen3.6-27b` |
+| `GROQ_VISION_MODEL` | 선택 사항. 기본값 `qwen/qwen3.8-27b` |
 
 ## 3. 실행 및 배포
 
@@ -30,3 +30,4 @@ npm run dev
 GitHub에 올린 뒤 Vercel에서 저장소를 Import하면 Next.js로 자동 인식합니다. 환경 변수를 먼저 넣고 Deploy하세요.
 
 Groq 키는 `/api/solve` 서버 라우트에서만 읽습니다. 브라우저 번들에는 포함되지 않습니다. 원본 문제 사진은 비공개 Supabase Storage에 저장되고, RLS 정책이 다른 사용자의 데이터 접근을 차단합니다.
+
