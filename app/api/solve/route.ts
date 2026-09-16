@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { generateExplanation, GeminiError } from '@/lib/gemini'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -8,32 +9,23 @@ const SYSTEM_PROMPT = `당신은 친절하고 정확한 한국어 수학 선생�
 
 export async function POST(request: Request) {
   try {
-    if (!process.env.GROQ_API_KEY) return NextResponse.json({ error: '서버에 GROQ_API_KEY 환경변수가 설정되지 않았습니다.' }, { status: 500 })
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 })
     const form = await request.formData()
     const image = form.get('image')
     const question = String(form.get('question') ?? '')
-    if (!(image instanceof File) || !image.type.startsWith('image/')) return NextResponse.json({ error: '유효한 이미지 파일을 올려 주세요.' }, { status: 400 })
-    if (image.size > 10 * 1024 * 1024) return NextResponse.json({ error: '이미지는 10MB 이하여야 합니다.' }, { status: 400 })
+    if (!(image instanceof File) || !['image/jpeg', 'image/png', 'image/webp'].includes(image.type) || image.size === 0) return NextResponse.json({ error: 'JPG, PNG, WEBP 이미지 파일을 올려 주세요.' }, { status: 400 })
+    if (image.size > 4 * 1024 * 1024) return NextResponse.json({ error: '이미지는 4MB 이하여야 합니다.' }, { status: 413 })
+    if (question.length > 2000) return NextResponse.json({ error: '추가 요청은 2,000자 이내로 입력해 주세요.' }, { status: 400 })
 
     const bytes = Buffer.from(await image.arrayBuffer())
-    const dataUrl = `data:${image.type};base64,${bytes.toString('base64')}`
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: process.env.GROQ_VISION_MODEL ?? 'qwen/qwen3.8-27b',
-        temperature: 0.2,
-        max_completion_tokens: 1800,
-        messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: [{ type: 'text', text: question ? `추가 요청: ${question}` : '이 수학 문제를 풀어주세요.' }, { type: 'image_url', image_url: { url: dataUrl } }] }],
-      }),
+    const explanation = await generateExplanation({
+      imageBase64: bytes.toString('base64'),
+      mimeType: image.type,
+      question,
+      systemPrompt: SYSTEM_PROMPT,
     })
-    const groqBody = await groqResponse.json()
-    if (!groqResponse.ok) return NextResponse.json({ error: groqBody.error?.message ?? 'Groq API 요청에 실패했습니다.' }, { status: 502 })
-    const explanation = groqBody.choices?.[0]?.message?.content
-    if (!explanation) return NextResponse.json({ error: 'AI 풀이 결과를 받지 못했습니다.' }, { status: 502 })
 
     const extension = image.type.split('/')[1]?.replace(/[^a-z0-9]/gi, '') || 'jpg'
     const path = `${user.id}/${crypto.randomUUID()}.${extension}`
@@ -47,8 +39,8 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ explanation })
   } catch (error) {
+    if (error instanceof GeminiError) return NextResponse.json({ error: error.message }, { status: error.status })
     console.error('Solve route error:', error)
     return NextResponse.json({ error: '풀이 저장 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.' }, { status: 500 })
   }
 }
-

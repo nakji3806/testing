@@ -19,8 +19,8 @@ export function Dashboard({ email, initialSolutions }: { email: string; initialS
   function chooseFile(event: ChangeEvent<HTMLInputElement>) {
     const next = event.target.files?.[0] ?? null
     if (!next) return
-    if (!next.type.startsWith('image/')) return setError('JPG, PNG, WEBP 등 이미지 파일만 올릴 수 있어요.')
-    if (next.size > 10 * 1024 * 1024) return setError('이미지는 10MB 이하로 올려 주세요.')
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(next.type)) return setError('JPG, PNG, WEBP 이미지 파일만 올릴 수 있어요.')
+    if (next.size > 4 * 1024 * 1024) return setError('이미지는 4MB 이하로 올려 주세요.')
     setError('')
     setFile(next)
     setPreview(URL.createObjectURL(next))
@@ -34,6 +34,9 @@ export function Dashboard({ email, initialSolutions }: { email: string; initialS
     form.append('question', question)
     try {
       const response = await fetch('/api/solve', { method: 'POST', body: form })
+      if (!response.headers.get('content-type')?.includes('application/json')) {
+        throw new Error(response.status === 413 ? '이미지는 4MB 이하로 올려 주세요.' : '서버 응답을 받지 못했어요. 잠시 후 다시 시도해 주세요.')
+      }
       const body = await response.json()
       if (!response.ok) throw new Error(body.error ?? '풀이 생성에 실패했습니다.')
       setFile(null); setPreview(null); setQuestion('')
@@ -55,11 +58,11 @@ export function Dashboard({ email, initialSolutions }: { email: string; initialS
       <section className="workspace">
         <div className="upload-panel">
           <h2>새 문제 풀이</h2>
-          <input ref={inputRef} type="file" accept="image/*" onChange={chooseFile} hidden />
+          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseFile} hidden />
           <button className={`drop-zone ${preview ? 'has-image' : ''}`} onClick={() => inputRef.current?.click()}>
-            {preview ? <img src={preview} alt="선택한 문제 미리보기" /> : <><strong>＋</strong><span>문제 사진을 올려주세요</span><small>JPG · PNG · WEBP / 최대 10MB</small></>}
+            {preview ? <img src={preview} alt="선택한 문제 미리보기" /> : <><strong>＋</strong><span>문제 사진을 올려주세요</span><small>JPG · PNG · WEBP / 최대 4MB</small></>}
           </button>
-          <label className="question-label">추가 요청 (선택)<textarea value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="예: 중학교 2학년 수준으로 설명해줘" rows={3} /></label>
+          <label className="question-label">추가 요청 (선택)<textarea value={question} maxLength={2000} onChange={(e) => setQuestion(e.target.value)} placeholder="예: 중학교 2학년 수준으로 설명해줘" rows={3} /></label>
           {error && <p className="notice">{error}</p>}
           <button className="primary solve-button" onClick={solve} disabled={loading}>{loading ? 'AI가 풀이를 작성 중…' : 'AI 해설 만들기 →'}</button>
         </div>
