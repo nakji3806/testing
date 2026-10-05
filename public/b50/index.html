@@ -222,6 +222,28 @@
     </nav>
   </div>
 
+  <dialog id="firstGuideDialog" class="settings-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><div><p class="eyebrow">QUICK START</p><h2 style="margin:3px 0 0">처음이라면 이렇게 써</h2></div><button class="icon-btn" value="cancel" aria-label="닫기">×</button></div>
+      <div class="guide-stack" style="margin-top:16px">
+        <article class="guide-card">
+          <div class="guide-card-head"><span class="guide-num">1</span><h3>B50 이미지 한 번 가져오기</h3></div>
+          <p>Arcaea Online의 <strong>B50 전체 캡처</strong>를 ‘기록 입력’에서 분석하면 50개 기록을 한 번에 채울 수 있어.</p>
+        </article>
+        <article class="guide-card">
+          <div class="guide-card-head"><span class="guide-num">2</span><h3>그다음엔 기갱한 곡만 입력</h3></div>
+          <p>처음 세팅 뒤에는 이미지 인식을 계속 쓸 필요 없어. 새 최고 기록이 생긴 곡만 검색해서 점수를 갱신하면 돼.</p>
+        </article>
+        <article class="guide-card">
+          <div class="guide-card-head"><span class="guide-num">3</span><h3>곡·자켓은 자동 업데이트</h3></div>
+          <p>신곡과 세부난이도, 자켓 데이터는 외부 DB가 갱신되면 웹에서도 자동으로 최신 정보를 확인해.</p>
+        </article>
+      </div>
+      <button id="openGuideBtn" class="primary-btn" type="button" style="margin-top:14px">설명서 전체 보기</button>
+      <button id="dismissGuideBtn" class="settings-button" type="button" style="text-align:center;border-bottom:0">바로 시작</button>
+    </form>
+  </dialog>
+
   <dialog id="settingsDialog" class="settings-dialog">
     <form method="dialog">
       <div class="dialog-head"><h2>설정</h2><button class="icon-btn" value="cancel" aria-label="닫기">×</button></div>
@@ -251,7 +273,8 @@
     profile: 'b50pocket.profile.v2',
     records: 'b50pocket.records.v2',
     chartdb: 'b50pocket.chartdb.v2',
-    jackets: 'b50pocket.jackets.v1'
+    jackets: 'b50pocket.jackets.v1',
+    guideSeen: 'b50pocket.guideSeen.v1'
   };
 
   const NONUNICODE = {
@@ -299,7 +322,7 @@
 
   const els = {};
   function cacheEls(){[
-    'onboarding','appShell','firstNickname','startBtn','profileName','syncBtn','settingsBtn','b50Count','overallPtt','cutoffText','dbVersion','dataNotice','b50Grid','b50Empty',
+    'onboarding','appShell','firstNickname','startBtn','profileName','syncBtn','settingsBtn','firstGuideDialog','openGuideBtn','dismissGuideBtn','b50Count','overallPtt','cutoffText','dbVersion','dataNotice','b50Grid','b50Empty',
     'recommendModes','recommendHelp','recommendList','songSearch','clearSearchBtn','searchResults','selectedChart','selectedCover','selectedTitle','selectedSub','changeChartBtn','scoreForm','scoreInput','resultPicker','scorePreview','saveScoreBtn','recordFilter','recordList','scoreImageInput','imageDrop','imagePreviewWrap','imagePreview','analyzeImageBtn','clearImageBtn','ocrStatus','ocrProgressBar','ocrStatusText','ocrProgressText','importResults','importSummary','toggleImportAllBtn','importList','importSelectedBtn','settingsDialog','nicknameInput','saveNicknameBtn','settingsDbStatus','backupBtn','restoreInput','resetScoresBtn','resetProfileBtn','toast'
   ].forEach(id=>els[id]=$(id));}
 
@@ -1282,8 +1305,8 @@
   function backup(){const data={app:'B50 Pocket',schema:2,exportedAt:new Date().toISOString(),profile,records};downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),`b50-pocket-${new Date().toISOString().slice(0,10)}.json`);toast('백업 파일을 만들었어')}
   async function restore(file){try{const data=JSON.parse(await file.text());if(!Array.isArray(data.records)||!data.profile?.nickname)throw new Error();records=data.records;profile=data.profile;setJSON(KEYS.records,records);setJSON(KEYS.profile,profile);renderAll();toast(`${records.length}개 기록을 불러왔어`)}catch{toast('백업 파일을 읽지 못했어')}els.restoreInput.value=''}
 
-  function startProfile(){const nickname=els.firstNickname.value.trim();if(!nickname){toast('닉네임을 입력해줘');els.firstNickname.focus();return}profile={nickname};records=[];setJSON(KEYS.profile,profile);setJSON(KEYS.records,records);els.onboarding.hidden=true;els.appShell.hidden=false;renderAll();toast('시작했어')}
-  function resetProfile(){if(!confirm('닉네임과 모든 점수 기록을 이 브라우저에서 지울까?'))return;localStorage.removeItem(KEYS.profile);localStorage.removeItem(KEYS.records);profile=null;records=[];els.settingsDialog.close();els.appShell.hidden=true;els.onboarding.hidden=false;els.firstNickname.value='';els.firstNickname.focus()}
+  function startProfile(){const nickname=els.firstNickname.value.trim();if(!nickname){toast('닉네임을 입력해줘');els.firstNickname.focus();return}profile={nickname};records=[];setJSON(KEYS.profile,profile);setJSON(KEYS.records,records);els.onboarding.hidden=true;els.appShell.hidden=false;renderAll();toast('시작했어');if(!localStorage.getItem(KEYS.guideSeen))setTimeout(()=>els.firstGuideDialog.showModal(),180)}
+  function resetProfile(){if(!confirm('닉네임과 모든 점수 기록을 이 브라우저에서 지울까?'))return;localStorage.removeItem(KEYS.profile);localStorage.removeItem(KEYS.records);localStorage.removeItem(KEYS.guideSeen);profile=null;records=[];els.settingsDialog.close();els.appShell.hidden=true;els.onboarding.hidden=false;els.firstNickname.value='';els.firstNickname.focus()}
 
   function repairImportedRanksFromCandidates(){
     if(!importCandidates.length||!records.length)return;
@@ -1299,6 +1322,9 @@
 
   function bind(){
     els.startBtn.addEventListener('click',startProfile);els.firstNickname.addEventListener('keydown',e=>{if(e.key==='Enter')startProfile()});
+    els.openGuideBtn.addEventListener('click',()=>{localStorage.setItem(KEYS.guideSeen,'1');els.firstGuideDialog.close();setView('guide')});
+    els.dismissGuideBtn.addEventListener('click',()=>{localStorage.setItem(KEYS.guideSeen,'1');els.firstGuideDialog.close()});
+    els.firstGuideDialog.addEventListener('close',()=>localStorage.setItem(KEYS.guideSeen,'1'));
     qsa('.nav-btn').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.target)));qsa('[data-go]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.go)));
     els.syncBtn.addEventListener('click',()=>{syncDB(true);localStorage.removeItem(KEYS.jackets);syncJackets(true)});els.settingsBtn.addEventListener('click',()=>els.settingsDialog.showModal());
     els.songSearch.addEventListener('input',searchCharts);els.clearSearchBtn.addEventListener('click',()=>{els.songSearch.value='';searchCharts();els.songSearch.focus()});els.changeChartBtn.addEventListener('click',clearSelection);
