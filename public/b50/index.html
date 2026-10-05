@@ -938,9 +938,27 @@
         const response=await fetch('/api/b50-import',{method:'POST',body:form,cache:'no-store'});
         let data={};try{data=await response.json()}catch{}
         if(!response.ok)throw new Error((data&&data.error)||('서버 오류 HTTP '+response.status));
-        setOCRProgress(.86,'곡과 세부난이도 매칭 중…');
+        setOCRProgress(.72,'비전 AI 결과 정리 중…');
         importCandidates=(Array.isArray(data&&data.entries)?data.entries:[]).map(makeImportCandidate).filter(Boolean).sort((a,b)=>a.rank-b.rank);
         if(!importCandidates.length)throw new Error('서버가 읽은 기록이 0개야');
+        const visionScoreCount=importCandidates.filter(x=>x.score).length;
+        if(visionScoreCount<40){
+          try{
+            setOCRProgress(.74,'AI가 못 읽은 칸만 OCR로 보충 중…');
+            const local=await runLocalB50OCR(scoreImageFile);
+            const byRank=new Map(importCandidates.map(x=>[x.rank,x]));
+            for(const x of local){
+              const cur=byRank.get(x.rank);
+              if(!cur){byRank.set(x.rank,x);continue}
+              if(!cur.score&&x.score)cur.score=x.score;
+              if(cur.potential==null&&x.potential!=null)cur.potential=x.potential;
+              if(!cur.level&&x.level)cur.level=x.level;
+              if(!cur.titleGuess&&x.titleGuess)cur.titleGuess=x.titleGuess;
+              if(!cur.chart&&x.chart){cur.chart=x.chart;cur.confidence=Math.max(cur.confidence||0,x.confidence||0)}
+            }
+            importCandidates=[...byRank.values()].sort((a,b)=>a.rank-b.rank);
+          }catch(e){console.warn('supplemental OCR skipped',e)}
+        }
       }catch(e){
         console.warn('server B50 analysis failed, falling back to local OCR',e);
         toast('서버 분석 실패 → 브라우저 OCR로 다시 시도할게');
