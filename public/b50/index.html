@@ -246,6 +246,7 @@
 
   function scoreModifier(score){score=Number(score)||0;if(score>=10000000)return 2;if(score>=9800000)return 1+(score-9800000)/200000;return (score-9500000)/300000}
   function playRating(constant,score,result='C'){if(!Number.isFinite(Number(constant)))return null;return Math.max(0,Number(constant)+scoreModifier(score)+(result==='C'?0.2:0))}
+  function recordRating(r){const imported=Number(r&&r.importedPotential);const sameScore=Number(r&&r.importedScore)===Number(r&&r.score);return Number.isFinite(imported)&&sameScore?imported:playRating(r.constant,r.score,r.result)}
   function inverseScore(targetRating,constant,result='C'){
     if(!Number.isFinite(Number(constant)))return null;
     const mod=targetRating-Number(constant)-(result==='C'?0.2:0);let score;
@@ -405,10 +406,10 @@
     chartDB=mergePatches(FALLBACK_CHARTS);els.dataNotice.textContent='최신 곡 DB를 불러오지 못해 테스트용 최소 데이터만 표시 중이야. 인터넷 연결 후 ↻을 눌러줘.';els.dataNotice.hidden=false;renderAll();if(showToast)toast('테스트용 DB 사용 중');
   }
 
-  function dedupedRecords(){const m=new Map();for(const r of records){const key=r.chartKey||chartKey(r),pr=playRating(r.constant,r.score,r.result),old=m.get(key);if(!old||pr>playRating(old.constant,old.score,old.result)||(pr===playRating(old.constant,old.score,old.result)&&r.score>old.score))m.set(key,r)}return[...m.values()]}
-  function b50(){return dedupedRecords().filter(r=>playRating(r.constant,r.score,r.result)!==null).sort((a,b)=>playRating(b.constant,b.score,b.result)-playRating(a.constant,a.score,a.result)||b.score-a.score).slice(0,50)}
-  function cutoffRating(){const b=b50();return b.length>=50?playRating(b[49].constant,b[49].score,b[49].result):null}
-  function rankFor(rating){const vals=b50().map(r=>playRating(r.constant,r.score,r.result));return 1+vals.filter(x=>x>rating+1e-9).length}
+  function dedupedRecords(){const m=new Map();for(const r of records){const key=r.chartKey||chartKey(r),pr=recordRating(r),old=m.get(key);if(!old||pr>recordRating(old)||(pr===recordRating(old)&&r.score>old.score))m.set(key,r)}return[...m.values()]}
+  function b50(){return dedupedRecords().filter(r=>recordRating(r)!==null).sort((a,b)=>{const d=recordRating(b)-recordRating(a);if(Math.abs(d)>.0005)return d;const ar=Number(a.sourceRank),br=Number(b.sourceRank);if(Number.isFinite(ar)&&Number.isFinite(br)&&ar!==br)return ar-br;return b.score-a.score}).slice(0,50)}
+  function cutoffRating(){const b=b50();return b.length>=50?recordRating(b[49]):null}
+  function rankFor(rating){const vals=b50().map(r=>recordRating(r));return 1+vals.filter(x=>x>rating+1e-9).length}
 
   function renderB50(){
     const b=b50();els.b50Count.textContent=`${b.length} / 50`;els.b50Empty.hidden=b.length>0;
@@ -422,7 +423,7 @@
   function renderDBStatus(){const v=dbVersion();els.dbVersion.textContent=v==='fallback'?'테스트':v;els.settingsDbStatus.textContent=`${v} · ${chartDB.length}보면`}
   function renderProfile(){els.profileName.textContent=profile?.nickname||'PLAYER';els.nicknameInput.value=profile?.nickname||''}
   function renderRecords(){
-    const term=normalizeText(els.recordFilter.value);const all=dedupedRecords().sort((a,b)=>playRating(b.constant,b.score,b.result)-playRating(a.constant,a.score,a.result));
+    const term=normalizeText(els.recordFilter.value);const all=dedupedRecords().sort((a,b)=>recordRating(b)-recordRating(a));
     const list=all.filter(r=>!term||normalizeText(`${r.song} ${r.artist} ${r.difficulty}`).includes(term));
     els.recordList.innerHTML=list.length?list.map(r=>`<div class="record-row"><div class="record-name"><strong>${escapeHTML(r.song)}</strong><span>${escapeHTML(diffAbbr(r.difficulty))} ${escapeHTML(r.level)} · 세부 ${constantText(r.constant)} · ${grade(r.score)}${r.result==='L'?' · LOST':''}</span></div><div class="record-score">${formatScore(r.score)}</div><button class="delete-btn" data-delete="${escapeHTML(r.id)}">×</button></div>`).join(''):'<div class="muted" style="padding:16px 0;font-size:11px">아직 저장한 기록이 없어.</div>';
     qsa('[data-delete]',els.recordList).forEach(b=>b.addEventListener('click',()=>deleteRecord(b.dataset.delete)));
@@ -459,19 +460,35 @@
   function selectChart(c){selectedChart=c;els.songSearch.value='';els.searchResults.classList.remove('show');els.selectedChart.hidden=false;els.scoreForm.hidden=false;els.selectedTitle.textContent=c.song;els.selectedSub.textContent=`${c.artist?c.artist+' · ':''}${diffAbbr(c.difficulty)} ${c.level} · 세부난이도 ${constantText(c.constant)}`;els.selectedCover.innerHTML=coverHTML(c.song);const old=currentRecordMap().get(chartKey(c));els.scoreInput.value=old?String(old.score):'';selectedResult=old?.result||'C';qsa('[data-result]',els.resultPicker).forEach(x=>x.classList.toggle('active',x.dataset.result===selectedResult));updatePreview();els.scoreInput.focus()}
   function clearSelection(){selectedChart=null;els.selectedChart.hidden=true;els.scoreForm.hidden=true;els.scoreInput.value='';els.songSearch.focus()}
   function updatePreview(){if(!selectedChart)return;const score=parseScore(els.scoreInput.value);if(score<1){els.scorePreview.textContent='점수를 입력하면 B50 진입 여부를 계산해.';return}if(score>10100000){els.scorePreview.textContent='점수가 너무 커. 다시 확인해줘.';return}const pr=playRating(selectedChart.constant,score,selectedResult),rank=rankFor(pr),cut=cutoffRating();if(cut==null)els.scorePreview.textContent=`저장하면 현재 기록 기준 #${rank} 예상`;else if(pr>cut)els.scorePreview.textContent=`B50 진입 예상 · 현재 기록 기준 #${Math.min(rank,50)}`;else{const need=inverseScore(cut+.00001,selectedChart.constant,'C');els.scorePreview.textContent=need&&need<=10000000?`50위 진입까지 약 ${formatDelta(need-score)}`:'현재 50위 컷은 이 보면의 최대치보다 높아.'}}
-  function saveScore(){if(!selectedChart||!Number.isFinite(selectedChart.constant)){toast('세부난이도가 있는 보면을 골라줘');return}const score=parseScore(els.scoreInput.value);if(score<100000||score>10100000){toast('점수를 다시 확인해줘');return}const key=chartKey(selectedChart),nextPR=playRating(selectedChart.constant,score,selectedResult),existing=records.find(r=>(r.chartKey||chartKey(r))===key);if(existing){const old=playRating(existing.constant,existing.score,existing.result);if(nextPR<old-1e-9||(Math.abs(nextPR-old)<1e-9&&score<=existing.score)){toast('기존 기록보다 낮아서 유지했어');return}Object.assign(existing,{song:selectedChart.song,artist:selectedChart.artist,difficulty:selectedChart.difficulty,level:selectedChart.level,constant:selectedChart.constant,score,result:selectedResult,chartKey:key,updatedAt:new Date().toISOString()});toast('기록을 갱신했어')}else{records.push({id:`r-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,song:selectedChart.song,artist:selectedChart.artist,difficulty:selectedChart.difficulty,level:selectedChart.level,constant:selectedChart.constant,score,result:selectedResult,chartKey:key,createdAt:new Date().toISOString()});toast('기록을 저장했어')}setJSON(KEYS.records,records);renderAll();clearSelection();setView('b50')}
+  function saveScore(){if(!selectedChart||!Number.isFinite(selectedChart.constant)){toast('세부난이도가 있는 보면을 골라줘');return}const score=parseScore(els.scoreInput.value);if(score<100000||score>10100000){toast('점수를 다시 확인해줘');return}const key=chartKey(selectedChart),nextPR=playRating(selectedChart.constant,score,selectedResult),existing=records.find(r=>(r.chartKey||chartKey(r))===key);if(existing){const old=playRating(existing.constant,existing.score,existing.result);if(nextPR<old-1e-9||(Math.abs(nextPR-old)<1e-9&&score<=existing.score)){toast('기존 기록보다 낮아서 유지했어');return}Object.assign(existing,{song:selectedChart.song,artist:selectedChart.artist,difficulty:selectedChart.difficulty,level:selectedChart.level,constant:selectedChart.constant,score,result:selectedResult,chartKey:key,updatedAt:new Date().toISOString(),importedPotential:null,importedScore:null,sourceRank:null});toast('기록을 갱신했어')}else{records.push({id:`r-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,song:selectedChart.song,artist:selectedChart.artist,difficulty:selectedChart.difficulty,level:selectedChart.level,constant:selectedChart.constant,score,result:selectedResult,chartKey:key,createdAt:new Date().toISOString()});toast('기록을 저장했어')}setJSON(KEYS.records,records);renderAll();clearSelection();setView('b50')}
   function deleteRecord(id){const r=records.find(x=>x.id===id);if(!r)return;if(!confirm(`“${r.song}” 기록을 삭제할까?`))return;records=records.filter(x=>x.id!==id);setJSON(KEYS.records,records);renderAll();toast('삭제했어')}
 
-  function addOrUpdateRecord(chart,score,result='C',silent=true){
+  function addOrUpdateRecord(chart,score,result='C',silent=true,importedPotential=null,sourceRank=null){
     if(!chart||!Number.isFinite(Number(chart.constant))||score<100000||score>10100000)return {status:'invalid'};
-    const key=chartKey(chart),nextPR=playRating(chart.constant,score,result),existing=records.find(r=>(r.chartKey||chartKey(r))===key);
+    const key=chartKey(chart);
+    const haveImported=Number.isFinite(Number(importedPotential));
+    const nextPR=haveImported?Number(importedPotential):playRating(chart.constant,score,result);
+    const existing=records.find(r=>(r.chartKey||chartKey(r))===key);
     if(existing){
-      const old=playRating(existing.constant,existing.score,existing.result);
+      const old=recordRating(existing);
       if(nextPR<old-1e-9||(Math.abs(nextPR-old)<1e-9&&score<=existing.score))return {status:'kept'};
-      Object.assign(existing,{song:chart.song,artist:chart.artist,difficulty:chart.difficulty,level:chart.level,constant:chart.constant,score,result,chartKey:key,updatedAt:new Date().toISOString()});
+      Object.assign(existing,{
+        song:chart.song,artist:chart.artist,difficulty:chart.difficulty,level:chart.level,constant:chart.constant,
+        score,result,chartKey:key,updatedAt:new Date().toISOString(),
+        importedPotential:haveImported?Number(importedPotential):null,
+        importedScore:haveImported?score:null,
+        sourceRank:Number.isFinite(Number(sourceRank))?Number(sourceRank):null
+      });
       return {status:'updated'};
     }
-    records.push({id:`r-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,song:chart.song,artist:chart.artist,difficulty:chart.difficulty,level:chart.level,constant:chart.constant,score,result,chartKey:key,createdAt:new Date().toISOString()});
+    records.push({
+      id:`r-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+      song:chart.song,artist:chart.artist,difficulty:chart.difficulty,level:chart.level,constant:chart.constant,
+      score,result,chartKey:key,createdAt:new Date().toISOString(),
+      importedPotential:haveImported?Number(importedPotential):null,
+      importedScore:haveImported?score:null,
+      sourceRank:Number.isFinite(Number(sourceRank))?Number(sourceRank):null
+    });
     return {status:'added'};
   }
 
@@ -506,7 +523,27 @@
   }
   function inferResult(words,cell){const cw=cell.x1-cell.x0,ch=cell.y1-cell.y0;for(const w of words){const cx=(w.bbox.x0+w.bbox.x1)/2,cy=(w.bbox.y0+w.bbox.y1)/2;if(cx<cell.x0+cw*.72||cy<cell.y0+ch*.48)continue;const t=String(w.text).toUpperCase().replace(/[^CFPL]/g,'');if(t==='L')return'L';if(['C','F','P'].includes(t))return'C'}return'C'}
   function inferChart(songMatch,score,potential,level,result){
-    let best=null;for(const c of songMatch.charts.filter(x=>Number.isFinite(Number(x.constant)))){let penalty=0;if(level&&String(c.level)!==String(level))penalty+=.42;if(potential!=null){const err=Math.abs(playRating(c.constant,score,result)-potential);penalty+=Math.min(1.2,err*2.7)}else if(level&&String(c.level)===String(level))penalty-=.08;else penalty+=.18; if(!best||penalty<best.penalty)best={chart:c,penalty}}
+    const charts=songMatch.charts.filter(x=>Number.isFinite(Number(x.constant)));
+    if(!charts.length)return null;
+    let best=null;
+    const havePotential=Number.isFinite(Number(potential));
+    const expectedCC=havePotential
+      ? Number(potential)-scoreModifier(score)-(result==='C'?0.2:0)
+      : null;
+    for(const ch of charts){
+      let penalty=0;
+      if(havePotential){
+        // Arcaea Online already prints this play's POTENTIAL.
+        // Back-calculate the chart constant and use that as the primary selector.
+        penalty+=Math.abs(Number(ch.constant)-expectedCC)*10;
+        if(level&&String(ch.level)!==String(level))penalty+=.08;
+      }else{
+        if(level&&String(ch.level)!==String(level))penalty+=.7;
+        else if(level)penalty-=.1;
+        else penalty+=.2;
+      }
+      if(!best||penalty<best.penalty)best={chart:ch,penalty,expectedCC};
+    }
     return best;
   }
   function parseGridOCR(words,width,height){
@@ -1003,7 +1040,7 @@
       ocrBusy=false;els.analyzeImageBtn.disabled=false;
     }
   }
-  function importSelectedRecords(){const picked=importCandidates.filter(x=>x.checked&&x.chart&&x.score);if(!picked.length){toast('등록할 기록을 골라줘');return}let added=0,updated=0,kept=0;for(const x of picked){const r=addOrUpdateRecord(x.chart,x.score,x.result,true);if(r.status==='added')added++;else if(r.status==='updated')updated++;else if(r.status==='kept')kept++}setJSON(KEYS.records,records);renderAll();toast(`${added+updated}개 반영 · ${kept}개는 기존 기록 유지`);setView('b50')}
+  function importSelectedRecords(){const picked=importCandidates.filter(x=>x.checked&&x.chart&&x.score);if(!picked.length){toast('등록할 기록을 골라줘');return}let added=0,updated=0,kept=0;for(const x of picked){const r=addOrUpdateRecord(x.chart,x.score,x.result,true,x.potential,x.rank);if(r.status==='added')added++;else if(r.status==='updated')updated++;else if(r.status==='kept')kept++}setJSON(KEYS.records,records);renderAll();toast(`${added+updated}개 반영 · ${kept}개는 기존 기록 유지`);setView('b50')}
 
   function toast(msg){els.toast.textContent=msg;els.toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>els.toast.classList.remove('show'),1800)}
   function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
