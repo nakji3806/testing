@@ -574,9 +574,14 @@
   function canvasToBlob(canvas,type='image/jpeg',quality=.9){return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('image-encode')),type,quality))}
   function normalizeImportResult(value){const v=String(value||'').trim().toUpperCase();return ['C','F','P','L'].includes(v)?v:'C'}
   function makeImportCandidate(e){
-    const digits=String(e&&e.score!=null?e.score:'').replace(/[^0-9]/g,'');
-    const scoreNum=digits?Number(digits):NaN;
-    const score=Number.isFinite(scoreNum)&&scoreNum>=7000000&&scoreNum<=10100000?scoreNum:null;
+    const parseCandidate=v=>{
+      const d=String(v!=null?v:'').replace(/[^0-9]/g,'');
+      const n=d?Number(d):NaN;
+      return Number.isFinite(n)&&n>=7000000&&n<=10100000?n:null;
+    };
+    const score1=parseCandidate(e&&e.score);
+    const score2=parseCandidate(e&&e.scoreVerify);
+    const scoreChoices=[...new Set([score1,score2].filter(Boolean))];
     const rank=Math.max(1,Math.min(50,Number(e&&e.rank)||999));
     const titleGuess=String(e&&e.title||'').trim();
     const potential=Number.isFinite(Number(e&&e.potential))?Number(e.potential):null;
@@ -584,17 +589,40 @@
     const result=normalizeImportResult(e&&e.result);
     const aiConfidence=Math.max(0,Math.min(1,Number(e&&e.confidence)||.25));
     const songMatch=titleGuess?bestSongMatch(titleGuess,titleGuess):null;
-    let chart=null,confidence=0;
-    if(score&&songMatch&&songMatch.score>=.34){
-      const inf=inferChart(songMatch,score,potential,level,result);
-      if(inf){
-        chart=inf.chart;
-        const potentialQuality=potential==null?.45:Math.max(0,1-Math.abs(playRating(inf.chart.constant,score,result)-potential)*2.4);
-        const levelQuality=level?(String(inf.chart.level)===String(level)?1:.25):.5;
-        confidence=Math.max(0,Math.min(1,aiConfidence*.30+songMatch.score*.44+potentialQuality*.18+levelQuality*.08));
+    let chart=null,confidence=0,score=score1||score2||null,scoreVerified=false;
+
+    if(songMatch&&songMatch.score>=.34&&scoreChoices.length){
+      let best=null;
+      for(const s of scoreChoices){
+        const inf=inferChart(songMatch,s,potential,level,result);
+        if(!inf)continue;
+        const potErr=potential==null?.18:Math.abs(playRating(inf.chart.constant,s,result)-potential);
+        const lvPenalty=level&&String(inf.chart.level)!==String(level)?.18:0;
+        const verifyBonus=(score2&&s===score2)?.025:0;
+        const metric=potErr+lvPenalty-verifyBonus;
+        if(!best||metric<best.metric)best={score:s,chart:inf.chart,metric,potErr};
+      }
+      if(best){
+        score=best.score;chart=best.chart;
+        scoreVerified=Boolean(score2&&score===score2);
+        const potentialQuality=potential==null?.45:Math.max(0,1-best.potErr*2.8);
+        const levelQuality=level?(String(best.chart.level)===String(level)?1:.25):.5;
+        const agreement=(score1&&score2&&score1===score2)?1:(score2?.72:.45);
+        confidence=Math.max(0,Math.min(1,aiConfidence*.22+songMatch.score*.38+potentialQuality*.22+levelQuality*.08+agreement*.10));
       }
     }
-    return {rank,chart,score,result,potential,level,confidence,raw:titleGuess,titleGuess,checked:Boolean(chart&&score&&confidence>=.60)}
+
+    if(!chart&&scoreChoices.length){
+      if(score1&&score2&&score1===score2){score=score1;scoreVerified=true}
+      else if(score2){score=score2;scoreVerified=true}
+    }
+
+    return {
+      rank,chart,score,result,potential,level,confidence,raw:titleGuess,titleGuess,
+      checked:Boolean(chart&&score&&confidence>=.60),
+      scoreFirst:score1,scoreVerify:score2,scoreVerified,
+      scoreDisagrees:Boolean(score1&&score2&&score1!==score2)
+    }
   }
   let tesseractLoader=null;
   async function ensureTesseract(){
@@ -897,7 +925,9 @@
     const matched=importCandidates.filter(x=>x.chart).length;
     const scoreRead=importCandidates.filter(x=>x.score).length;
     const jackets=importCandidates.filter(x=>x.jacketMatched).length;
-    els.importSummary.textContent='50칸 · 점수 '+scoreRead+'개 · 곡 자동매칭 '+matched+'개 · 자켓보정 '+jackets+'개 · '+checked+'개 선택';
+    const verified=importCandidates.filter(x=>x.scoreVerify&&x.scoreVerified).length;
+    const disagree=importCandidates.filter(x=>x.scoreDisagrees).length;
+    els.importSummary.textContent='50칸 · 점수 '+scoreRead+'개 · 숫자재검증 '+verified+'개'+(disagree?' · 불일치 '+disagree+'개':'')+' · 곡 자동매칭 '+matched+'개 · '+checked+'개 선택';
     const songs=uniqueSongs().sort((a,b)=>a.song.localeCompare(b.song));
     const datalist='<datalist id="importSongDatalist">'+songs.map(x=>'<option value="'+escapeHTML(x.song)+'"></option>').join('')+'</datalist>';
     els.importList.innerHTML=importCandidates.length?importCandidates.map((x,i)=>{
@@ -907,7 +937,7 @@
         ? '<strong>#'+x.rank+' '+escapeHTML(x.chart.song)+'</strong><span>'+escapeHTML(chartDisplay(x.chart))+(x.potential!=null?' · 인식 성과 '+Number(x.potential).toFixed(3):'')+'</span><select class="import-chart-select" data-import-chart="'+i+'">'+opts.map(c=>'<option value="'+escapeHTML(chartKey(c))+'" '+(chartKey(c)===chartKey(x.chart)?'selected':'')+'>'+escapeHTML(chartDisplay(c))+'</option>').join('')+'</select>'
         : '<strong>#'+x.rank+' 곡 자동 인식 실패</strong><span>'+(x.potential!=null?'성과 '+Number(x.potential).toFixed(3)+' · ':'')+(x.level?'표시 난이도 '+escapeHTML(x.level)+' · ':'')+'자켓/곡명을 다시 맞출 수 있어.</span><input class="import-song-input" data-import-song="'+i+'" list="importSongDatalist" placeholder="곡명 검색 / 선택" value="">';
       const scoreValue=x.score?formatScore(x.score):'';
-      return '<div class="import-row"><input class="import-check" type="checkbox" data-import-check="'+i+'" '+(x.checked&&x.chart&&x.score?'checked':'')+' '+(x.chart&&x.score?'':'disabled')+'><div class="import-main">'+main+'</div><div class="import-side"><input class="mini-input import-score-input" data-import-score="'+i+'" inputmode="numeric" placeholder="점수" value="'+escapeHTML(scoreValue)+'"><div class="confidence '+(x.chart?cls:'low')+'">'+(x.score?(x.chart?Math.round(x.confidence*100)+'%':'곡 선택 필요'):'점수 확인 필요')+'</div></div></div>';
+      return '<div class="import-row"><input class="import-check" type="checkbox" data-import-check="'+i+'" '+(x.checked&&x.chart&&x.score?'checked':'')+' '+(x.chart&&x.score?'':'disabled')+'><div class="import-main">'+main+'</div><div class="import-side"><input class="mini-input import-score-input" data-import-score="'+i+'" inputmode="numeric" placeholder="점수" value="'+escapeHTML(scoreValue)+'"><div class="confidence '+(x.chart?cls:'low')+'">'+(x.score?(x.scoreDisagrees?'숫자 재검토':(x.chart?Math.round(x.confidence*100)+'%':'곡 선택 필요')):'점수 확인 필요')+'</div></div></div>';
     }).join('')+datalist:'<div class="muted" style="padding:16px">인식 결과가 없어.</div>';
 
     qsa('[data-import-check]',els.importList).forEach(b=>b.addEventListener('change',()=>{importCandidates[Number(b.dataset.importCheck)].checked=b.checked;renderImportSummary()}));
@@ -927,7 +957,9 @@
     const matched=importCandidates.filter(x=>x.chart).length;
     const scoreRead=importCandidates.filter(x=>x.score).length;
     const jackets=importCandidates.filter(x=>x.jacketMatched).length;
-    els.importSummary.textContent='50칸 · 점수 '+scoreRead+'개 · 곡 자동매칭 '+matched+'개 · 자켓보정 '+jackets+'개 · '+n+'개 선택';
+    const verified=importCandidates.filter(x=>x.scoreVerify&&x.scoreVerified).length;
+    const disagree=importCandidates.filter(x=>x.scoreDisagrees).length;
+    els.importSummary.textContent='50칸 · 점수 '+scoreRead+'개 · 숫자재검증 '+verified+'개'+(disagree?' · 불일치 '+disagree+'개':'')+' · 곡 자동매칭 '+matched+'개 · '+n+'개 선택';
     els.importSelectedBtn.disabled=n===0;els.importSelectedBtn.textContent=n?n+'개 기록 등록':'선택한 기록 등록';
   }
   function resetImageImport(clearFile=true){if(clearFile){scoreImageFile=null;els.scoreImageInput.value='';els.imagePreview.removeAttribute('src');els.imagePreviewWrap.hidden=true;els.imageDrop.hidden=false}importCandidates=[];els.importResults.hidden=true;els.ocrStatus.hidden=true;setOCRProgress(0,'준비 중…')}
