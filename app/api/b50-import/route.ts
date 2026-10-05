@@ -3,23 +3,23 @@ import { NextResponse } from 'next/server'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-const SYSTEM_PROMPT = `You read a PRE-CROPPED Arcaea Online B50 contact sheet.
-It always contains exactly 5 columns x 10 rows. Each enlarged cell corresponds to one rank, left-to-right then top-to-bottom. A black #rank label was added at the upper-left of each cell.
+const SYSTEM_PROMPT = `You read an original Arcaea Online B50 result image.
+The page contains a header at the top and then a fixed B50 result grid of exactly 5 columns x 10 rows, ordered left-to-right and top-to-bottom as ranks 1 through 50.
 
-Read each visible card independently. Do not infer a song from neighboring cells and do not invent unreadable text.
+Read every visible result card independently. Use the card position as rank if the tiny rank text is unclear. Do not invent unreadable values.
 Return ONLY valid JSON in this shape:
 {"entries":[{"rank":1,"title":"...","score":9963797,"potential":11.619,"level":"9","result":"C","confidence":0.98}]}
 
 Fields:
-- rank: 1 through 50 from the added black rank label / cell position
-- title: song title printed along the bottom edge of that card
+- rank: 1 through 50 from grid position
+- title: song title printed at the bottom of the card
 - score: integer score, remove apostrophes/commas
-- potential: the small POTENTIAL decimal printed on the left, or null
-- level: top-right chart level such as 8+, 9, 9+, 10, 10+, 11, 11+, 12, or null
+- potential: small POTENTIAL decimal printed on the left, or null
+- level: top-right difficulty such as 8+, 9, 9+, 10, 10+, 11, 11+, 12, or null
 - result: bottom-right single letter C/F/P/L when readable, otherwise null
 - confidence: 0..1 confidence for title + score together
 
-Preserve unusual title characters when readable. If a cell is too unclear, omit that entry instead of guessing.`
+Preserve unusual title characters when readable. If a card is too unclear, omit that entry instead of guessing.`
 
 type GeminiBody = {
   candidates?: Array<{
