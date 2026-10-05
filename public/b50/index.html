@@ -300,6 +300,7 @@
     const colors=hashColors(title),id='cv'+Math.random().toString(36).slice(2,8),sources=coverSources(title),src=sources[0]||coverURL(title);
     return '<div class="cover '+escapeHTML(extra)+'" id="'+id+'" style="--c1:'+colors[0]+';--c2:'+colors[1]+'"><div class="fallback">'+escapeHTML(initials(title))+'</div><img loading="lazy" data-cover-title="'+escapeHTML(title)+'" data-cover-index="0" src="'+escapeHTML(src)+'" alt="" onload="this.parentElement.classList.add(\'loaded\')" onerror="coverFallback(this)"></div>';
   }
+  window.coverFallback=coverFallback;
 
 
   const jacketFeatureCache=new Map();
