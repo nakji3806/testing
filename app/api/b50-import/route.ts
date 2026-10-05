@@ -3,17 +3,23 @@ import { NextResponse } from 'next/server'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-const SYSTEM_PROMPT = `You read Arcaea Online B50 result images. Extract only the visible result cards from the uploaded B50 grid.
-Return one entry per visible rank. Do not invent missing values.
-For each entry:
-- rank: card rank 1-50
-- title: song title printed at the bottom of the card
-- score: integer score with punctuation removed
-- potential: the card's POTENTIAL value as a decimal number when readable, otherwise null
-- level: displayed numeric difficulty such as 9, 9+, 10, 10+, 11, 11+, 12 when readable, otherwise null
-- result: single result letter shown at the bottom-right of the card: C, F, P, or L. If unclear, use C only when the card visibly looks like a normal clear; otherwise null.
-- confidence: 0 to 1 for how confident you are in the title+score reading.
-The image is a 5-column by 10-row B50 grid ordered left-to-right, top-to-bottom. Prefer the printed rank number over inferred position. Preserve stylized song-title characters when you can. Never infer chart constants.`
+const SYSTEM_PROMPT = `You read a PRE-CROPPED Arcaea Online B50 contact sheet.
+It always contains exactly 5 columns x 10 rows. Each enlarged cell corresponds to one rank, left-to-right then top-to-bottom. A black #rank label was added at the upper-left of each cell.
+
+Read each visible card independently. Do not infer a song from neighboring cells and do not invent unreadable text.
+Return ONLY valid JSON in this shape:
+{"entries":[{"rank":1,"title":"...","score":9963797,"potential":11.619,"level":"9","result":"C","confidence":0.98}]}
+
+Fields:
+- rank: 1 through 50 from the added black rank label / cell position
+- title: song title printed along the bottom edge of that card
+- score: integer score, remove apostrophes/commas
+- potential: the small POTENTIAL decimal printed on the left, or null
+- level: top-right chart level such as 8+, 9, 9+, 10, 10+, 11, 11+, 12, or null
+- result: bottom-right single letter C/F/P/L when readable, otherwise null
+- confidence: 0..1 confidence for title + score together
+
+Preserve unusual title characters when readable. If a cell is too unclear, omit that entry instead of guessing.`
 
 type GeminiBody = {
   candidates?: Array<{
@@ -81,29 +87,6 @@ export async function POST(request: Request) {
           generationConfig: {
             temperature: 0,
             maxOutputTokens: 8192,
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: 'OBJECT',
-              properties: {
-                entries: {
-                  type: 'ARRAY',
-                  items: {
-                    type: 'OBJECT',
-                    properties: {
-                      rank: { type: 'INTEGER' },
-                      title: { type: 'STRING' },
-                      score: { type: 'INTEGER' },
-                      potential: { type: 'NUMBER', nullable: true },
-                      level: { type: 'STRING', nullable: true },
-                      result: { type: 'STRING', nullable: true },
-                      confidence: { type: 'NUMBER' },
-                    },
-                    required: ['rank', 'title', 'score', 'confidence'],
-                  },
-                },
-              },
-              required: ['entries'],
-            },
           },
         }),
       })
@@ -128,7 +111,12 @@ export async function POST(request: Request) {
     if (!text) return NextResponse.json({ error: '이미지에서 B50 기록을 찾지 못했어.' }, { status: 422 })
 
     let parsed: { entries?: RawEntry[] }
-    try { parsed = JSON.parse(text) } catch { return NextResponse.json({ error: '이미지 분석 결과 형식이 깨졌어. 다시 시도해줘.' }, { status: 502 }) }
+    try {
+      const cleaned = text.replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/i, '').trim()
+      parsed = JSON.parse(cleaned)
+    } catch {
+      return NextResponse.json({ error: '이미지는 읽었는데 결과 정리에 실패했어. 다시 시도해줘.' }, { status: 502 })
+    }
     const entries = (Array.isArray(parsed.entries) ? parsed.entries : [])
       .map(cleanEntry).filter((x): x is NonNullable<typeof x> => Boolean(x))
       .sort((a, b) => a.rank - b.rank)
