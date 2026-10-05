@@ -209,44 +209,49 @@ export async function POST(request: Request) {
       [41, 50],
     ] as const
 
-    const settled = await Promise.allSettled(
-      ranges.map(([startRank, endRank]) =>
-        readRange({
-          apiKey,
-          model,
-          bytes,
-          mimeType: image.type,
-          startRank,
-          endRank,
-        }),
-      ),
-    )
-
     const entries: CleanEntry[] = []
     let failedGroups = 0
     let rateLimited = false
 
-    settled.forEach((result, index) => {
-      const [startRank, endRank] = ranges[index]
-      if (result.status === 'fulfilled') {
-        entries.push(...result.value)
-      } else {
-        failedGroups += 1
-        const status = (result.reason as { status?: number } | undefined)?.status
-        if (status === 429) rateLimited = true
-        for (let rank = startRank; rank <= endRank; rank++) {
-          entries.push({
-            rank,
-            title: '',
-            score: null,
-            potential: null,
-            level: null,
-            result: null,
-            confidence: 0,
-          })
+    // Keep concurrency at 2 so Gemini does not reject five full-image
+    // vision calls at once on lower request quotas.
+    for (let i = 0; i < ranges.length; i += 2) {
+      const batch = ranges.slice(i, i + 2)
+      const settled = await Promise.allSettled(
+        batch.map(([startRank, endRank]) =>
+          readRange({
+            apiKey,
+            model,
+            bytes,
+            mimeType: image.type,
+            startRank,
+            endRank,
+          }),
+        ),
+      )
+
+      settled.forEach((result, batchIndex) => {
+        const [startRank, endRank] = batch[batchIndex]
+        if (result.status === 'fulfilled') {
+          entries.push(...result.value)
+        } else {
+          failedGroups += 1
+          const status = (result.reason as { status?: number } | undefined)?.status
+          if (status === 429) rateLimited = true
+          for (let rank = startRank; rank <= endRank; rank++) {
+            entries.push({
+              rank,
+              title: '',
+              score: null,
+              potential: null,
+              level: null,
+              result: null,
+              confidence: 0,
+            })
+          }
         }
-      }
-    })
+      })
+    }
 
     entries.sort((a, b) => a.rank - b.rank)
     const readable = entries.filter(x => x.score || x.title).length
