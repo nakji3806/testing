@@ -574,21 +574,27 @@
   function canvasToBlob(canvas,type='image/jpeg',quality=.9){return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('image-encode')),type,quality))}
   function normalizeImportResult(value){const v=String(value||'').trim().toUpperCase();return ['C','F','P','L'].includes(v)?v:'C'}
   function makeImportCandidate(e){
-    const score=Number(String(e?.score??'').replace(/[^0-9]/g,''));
-    if(!Number.isFinite(score)||score<0||score>10100000)return null;
-    const rank=Math.max(1,Math.min(50,Number(e?.rank)||999));
-    const titleGuess=String(e?.title||'').trim();
-    const potential=Number.isFinite(Number(e?.potential))?Number(e.potential):null;
-    const level=String(e?.level||'').trim()||null;
-    const result=normalizeImportResult(e?.result);
-    const aiConfidence=Math.max(0,Math.min(1,Number(e?.confidence)||.65));
+    const digits=String(e&&e.score!=null?e.score:'').replace(/[^0-9]/g,'');
+    const scoreNum=digits?Number(digits):NaN;
+    const score=Number.isFinite(scoreNum)&&scoreNum>=7000000&&scoreNum<=10100000?scoreNum:null;
+    const rank=Math.max(1,Math.min(50,Number(e&&e.rank)||999));
+    const titleGuess=String(e&&e.title||'').trim();
+    const potential=Number.isFinite(Number(e&&e.potential))?Number(e.potential):null;
+    const level=String(e&&e.level||'').trim()||null;
+    const result=normalizeImportResult(e&&e.result);
+    const aiConfidence=Math.max(0,Math.min(1,Number(e&&e.confidence)||.25));
     const songMatch=titleGuess?bestSongMatch(titleGuess,titleGuess):null;
     let chart=null,confidence=0;
-    if(songMatch&&songMatch.score>=.34){
+    if(score&&songMatch&&songMatch.score>=.34){
       const inf=inferChart(songMatch,score,potential,level,result);
-      if(inf){chart=inf.chart;const potentialQuality=potential==null?.45:Math.max(0,1-Math.abs(playRating(inf.chart.constant,score,result)-potential)*2.4);const levelQuality=level?(String(inf.chart.level)===String(level)?1:.25):.5;confidence=Math.max(0,Math.min(1,aiConfidence*.30+songMatch.score*.44+potentialQuality*.18+levelQuality*.08))}
+      if(inf){
+        chart=inf.chart;
+        const potentialQuality=potential==null?.45:Math.max(0,1-Math.abs(playRating(inf.chart.constant,score,result)-potential)*2.4);
+        const levelQuality=level?(String(inf.chart.level)===String(level)?1:.25):.5;
+        confidence=Math.max(0,Math.min(1,aiConfidence*.30+songMatch.score*.44+potentialQuality*.18+levelQuality*.08));
+      }
     }
-    return {rank,chart,score,result,potential,level,confidence,raw:titleGuess,titleGuess,checked:Boolean(chart&&confidence>=.60)}
+    return {rank,chart,score,result,potential,level,confidence,raw:titleGuess,titleGuess,checked:Boolean(chart&&score&&confidence>=.60)}
   }
   let tesseractLoader=null;
   async function ensureTesseract(){
@@ -931,57 +937,36 @@
     ocrBusy=true;els.analyzeImageBtn.disabled=true;els.ocrStatus.hidden=false;els.importResults.hidden=true;
     setOCRProgress(.06,'이미지 준비 중…');
     try{
-      try{
-        setOCRProgress(.14,'분석 서버로 보내는 중…');
-        const form=new FormData();
-        form.append('image',scoreImageFile,scoreImageFile.name||'arcaea-b50.jpg');
-        const response=await fetch('/api/b50-import',{method:'POST',body:form,cache:'no-store'});
-        let data={};try{data=await response.json()}catch{}
-        if(!response.ok)throw new Error((data&&data.error)||('서버 오류 HTTP '+response.status));
-        setOCRProgress(.72,'비전 AI 결과 정리 중…');
-        importCandidates=(Array.isArray(data&&data.entries)?data.entries:[]).map(makeImportCandidate).filter(Boolean).sort((a,b)=>a.rank-b.rank);
-        if(!importCandidates.length)throw new Error('서버가 읽은 기록이 0개야');
-        const visionScoreCount=importCandidates.filter(x=>x.score).length;
-        if(visionScoreCount<40){
-          try{
-            setOCRProgress(.74,'AI가 못 읽은 칸만 OCR로 보충 중…');
-            const local=await runLocalB50OCR(scoreImageFile);
-            const byRank=new Map(importCandidates.map(x=>[x.rank,x]));
-            for(const x of local){
-              const cur=byRank.get(x.rank);
-              if(!cur){byRank.set(x.rank,x);continue}
-              if(!cur.score&&x.score)cur.score=x.score;
-              if(cur.potential==null&&x.potential!=null)cur.potential=x.potential;
-              if(!cur.level&&x.level)cur.level=x.level;
-              if(!cur.titleGuess&&x.titleGuess)cur.titleGuess=x.titleGuess;
-              if(!cur.chart&&x.chart){cur.chart=x.chart;cur.confidence=Math.max(cur.confidence||0,x.confidence||0)}
-            }
-            importCandidates=[...byRank.values()].sort((a,b)=>a.rank-b.rank);
-          }catch(e){console.warn('supplemental OCR skipped',e)}
-        }
-      }catch(e){
-        console.warn('server B50 analysis failed, falling back to local OCR',e);
-        toast('서버 분석 실패 → 브라우저 OCR로 다시 시도할게');
-        importCandidates=await runLocalB50OCR(scoreImageFile);
+      setOCRProgress(.14,'비전 AI로 보내는 중…');
+      const form=new FormData();
+      form.append('image',scoreImageFile,scoreImageFile.name||'arcaea-b50.jpg');
+      const response=await fetch('/api/b50-import',{method:'POST',body:form,cache:'no-store'});
+      let data={};try{data=await response.json()}catch{}
+      if(!response.ok)throw new Error((data&&data.error)||('서버 오류 HTTP '+response.status));
+
+      setOCRProgress(.82,'비전 AI 결과 정리 중…');
+      const raw=Array.isArray(data&&data.entries)?data.entries:[];
+      importCandidates=raw.map(makeImportCandidate).filter(Boolean).sort((a,b)=>a.rank-b.rank);
+
+      const byRank=new Map(importCandidates.map(x=>[x.rank,x]));
+      importCandidates=[];
+      for(let rank=1;rank<=50;rank++){
+        importCandidates.push(byRank.get(rank)||{
+          rank,chart:null,score:null,result:'C',potential:null,level:null,
+          confidence:0,raw:'',titleGuess:'',checked:false
+        });
       }
-      try{
-        const need=importCandidates.filter(x=>!x.chart||x.confidence<.74).length;
-        if(need){
-          setOCRProgress(.86,'자켓 매칭 준비 중…');
-          importCandidates=await enhanceWithJacketMatches(importCandidates,scoreImageFile);
-        }
-      }catch(e){console.warn('jacket matching skipped',e)}
-      importCandidates=await enhanceWithJacketMatching(scoreImageFile,importCandidates);
-      const uniq=new Map();
-      for(const x of importCandidates){if(!uniq.has(x.rank))uniq.set(x.rank,x)}
-      importCandidates=[...uniq.values()].sort((a,b)=>a.rank-b.rank);
-      setOCRProgress(1,String(importCandidates.length)+'개 기록을 읽었어');
+
+      setOCRProgress(1,'50칸 비전 분석 완료');
       renderImportCandidates();
+      const scoreCount=importCandidates.filter(x=>x.score).length;
+      const titleCount=importCandidates.filter(x=>x.titleGuess).length;
+      toast('비전 AI: 점수 '+scoreCount+'개 · 곡명 '+titleCount+'개 읽음');
     }catch(e){
       console.error(e);
-      const msg=(e&&e.message)||'이미지 분석에 실패했어';
+      const msg=(e&&e.message)||'비전 AI 분석에 실패했어';
       setOCRProgress(0,'분석 실패 · '+msg.slice(0,45));
-      toast(msg.length<90?msg:'이미지 분석에 실패했어');
+      toast(msg.length<90?msg:'비전 AI 분석에 실패했어');
     }finally{
       ocrBusy=false;els.analyzeImageBtn.disabled=false;
     }
