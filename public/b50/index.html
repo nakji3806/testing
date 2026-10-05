@@ -309,7 +309,8 @@
     const diff=diffAbbr(chart.difficulty).toLowerCase();
     const base=COVER_BASE+encodeURIComponent(baseFile).replace(/%2F/gi,'');
     const variant=COVER_BASE+encodeURIComponent(stem+'_'+diff+'.jpg').replace(/%2F/gi,'');
-    return ['byd','etr','ins'].includes(diff)?[variant,base]:[base,variant];
+    const dynamic=coverSources(chart.song);
+    return [...new Set(['byd','etr','ins'].includes(diff)?[variant,...dynamic,base]:[...dynamic,base,variant])];
   }
   function featureFromDrawable(drawable,sx,sy,sw,sh){
     const dw=drawable.width||drawable.naturalWidth,dh=drawable.height||drawable.naturalHeight;
@@ -423,6 +424,52 @@
   function validateDB(db){return Array.isArray(db)&&db.length>=20&&db.filter(x=>x.song&&x.difficulty).length>=20}
 
   async function fetchText(url,timeout=9000){const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),timeout);try{const r=await fetch(url,{cache:'no-store',signal:ctl.signal});if(!r.ok)throw new Error(String(r.status));return await r.text()}finally{clearTimeout(t)}}
+  function loadCachedJackets(){
+    const cached=getJSON(KEYS.jackets,null);
+    if(cached&&cached.map&&typeof cached.map==='object'){
+      jacketMap=cached.map;
+      jacketFuzzy=Array.isArray(cached.fuzzy)?cached.fuzzy:[];
+      return cached.savedAt||null;
+    }
+    return null;
+  }
+  async function syncJackets(showToast=false){
+    if(showToast)toast('자켓 데이터 확인 중…');
+    const cachedAt=loadCachedJackets();
+    const age=cachedAt?Date.now()-Date.parse(cachedAt):Infinity;
+    if(Number.isFinite(age)&&age<12*60*60*1000){if(showToast)toast('자켓 데이터 최신 상태');return}
+    const next={},fuzzy=[];
+    const jobs=await Promise.allSettled([fetchText(JACKET_CATALOG_URL,12000),fetchText(JACKET_WIKI_INDEX_URL,12000)]);
+    if(jobs[0].status==='fulfilled'){
+      try{
+        const raw=JSON.parse(jobs[0].value),songs=Array.isArray(raw)?raw:(raw.songs||[]);
+        for(const song of songs){
+          for(const ch of (song.charts||[])){
+            if(!ch.jacket)continue;
+            const url=JACKET_CATALOG_BASE+String(ch.jacket).replace(/^\/+/, '');
+            addJacketSource(next,ch.title||song.title,url);
+          }
+        }
+      }catch{}
+    }
+    if(jobs[1].status==='fulfilled'){
+      try{
+        const raw=JSON.parse(jobs[1].value),songs=Array.isArray(raw)?raw:(raw.songs||[]);
+        for(const song of songs){
+          if(!song.songName||!song.coverUrl)continue;
+          addJacketSource(next,song.songName,song.coverUrl);
+          const key=normalizeText(song.songName);if(key)fuzzy.push({key,url:song.coverUrl});
+        }
+      }catch{}
+    }
+    const count=Object.keys(next).length;
+    if(count>=400){
+      jacketMap=next;jacketFuzzy=fuzzy;
+      setJSON(KEYS.jackets,{savedAt:new Date().toISOString(),map:jacketMap,fuzzy:jacketFuzzy});
+      renderAll();
+      if(showToast)toast('자켓 '+count+'곡 갱신');
+    }else if(showToast)toast('자켓 업데이트 실패 · 저장된 데이터 유지');
+  }
   async function syncDB(showToast=false){
     if(showToast)toast('곡 데이터 확인 중…');
     let loaded=null,source='';
@@ -1110,7 +1157,7 @@
   function bind(){
     els.startBtn.addEventListener('click',startProfile);els.firstNickname.addEventListener('keydown',e=>{if(e.key==='Enter')startProfile()});
     qsa('.nav-btn').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.target)));qsa('[data-go]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.go)));
-    els.syncBtn.addEventListener('click',()=>syncDB(true));els.settingsBtn.addEventListener('click',()=>els.settingsDialog.showModal());
+    els.syncBtn.addEventListener('click',()=>{syncDB(true);localStorage.removeItem(KEYS.jackets);syncJackets(true)});els.settingsBtn.addEventListener('click',()=>els.settingsDialog.showModal());
     els.songSearch.addEventListener('input',searchCharts);els.clearSearchBtn.addEventListener('click',()=>{els.songSearch.value='';searchCharts();els.songSearch.focus()});els.changeChartBtn.addEventListener('click',clearSelection);
     els.scoreInput.addEventListener('input',()=>{const n=parseScore(els.scoreInput.value);els.scoreInput.value=n?formatScore(n):'';updatePreview()});
     qsa('[data-result]',els.resultPicker).forEach(b=>b.addEventListener('click',()=>{selectedResult=b.dataset.result;qsa('[data-result]',els.resultPicker).forEach(x=>x.classList.toggle('active',x===b));updatePreview()}));
@@ -1122,7 +1169,7 @@
     els.resetScoresBtn.addEventListener('click',()=>{if(!confirm('모든 점수 기록을 삭제할까?'))return;records=[];setJSON(KEYS.records,records);renderAll();toast('점수 기록을 모두 지웠어')});els.resetProfileBtn.addEventListener('click',resetProfile);
   }
 
-  async function init(){cacheEls();profile=getJSON(KEYS.profile,null);records=getJSON(KEYS.records,[]);const cached=getJSON(KEYS.chartdb,null);if(cached?.rows&&validateDB(cached.rows))chartDB=mergePatches(cached.rows);else chartDB=mergePatches(FALLBACK_CHARTS);bind();if(profile?.nickname){els.appShell.hidden=false;renderAll()}else{els.onboarding.hidden=false;setTimeout(()=>els.firstNickname.focus(),50)}syncDB(false);if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{})}
+  async function init(){cacheEls();profile=getJSON(KEYS.profile,null);records=getJSON(KEYS.records,[]);loadCachedJackets();const cached=getJSON(KEYS.chartdb,null);if(cached?.rows&&validateDB(cached.rows))chartDB=mergePatches(cached.rows);else chartDB=mergePatches(FALLBACK_CHARTS);bind();if(profile?.nickname){els.appShell.hidden=false;renderAll()}else{els.onboarding.hidden=false;setTimeout(()=>els.firstNickname.focus(),50)}syncDB(false);syncJackets(false);if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{})}
   document.addEventListener('DOMContentLoaded',init);
 })();
 
