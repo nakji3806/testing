@@ -210,6 +210,35 @@ If a title or score is unclear, keep the rank and use "" or null instead of skip
   return entries
 }
 
+export async function GET() {
+  const apiKey = process.env.GEMINI_API_KEY?.trim()
+  if (!apiKey) {
+    return NextResponse.json({ ok: false, apiKeyPresent: false, error: 'GEMINI_API_KEY missing' }, { status: 503 })
+  }
+
+  const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-2.5-flash']
+  const checks: Array<{ model: string; status: number; ok: boolean }> = []
+
+  for (const model of models) {
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}`, {
+        headers: { 'x-goog-api-key': apiKey },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(10_000),
+      })
+      checks.push({ model, status: r.status, ok: r.ok })
+    } catch {
+      checks.push({ model, status: 0, ok: false })
+    }
+  }
+
+  return NextResponse.json({
+    ok: checks.some(x => x.ok),
+    apiKeyPresent: true,
+    checks,
+  }, { headers: { 'Cache-Control': 'no-store' } })
+}
+
 export async function POST(request: Request) {
   try {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
