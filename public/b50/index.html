@@ -479,6 +479,44 @@
     }
     return {rank,chart,score,result,potential,level,confidence,raw:titleGuess,titleGuess,checked:Boolean(chart&&confidence>=.60)}
   }
+  let tesseractLoader=null;
+  async function ensureTesseract(){
+    if(window.Tesseract&&window.Tesseract.createWorker)return window.Tesseract;
+    if(tesseractLoader)return tesseractLoader;
+    tesseractLoader=new Promise((resolve,reject)=>{
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      s.async=true;
+      s.onload=()=>window.Tesseract&&window.Tesseract.createWorker?resolve(window.Tesseract):reject(new Error('OCR 엔진을 불러오지 못했어'));
+      s.onerror=()=>reject(new Error('OCR 엔진 다운로드에 실패했어'));
+      document.head.appendChild(s);
+    });
+    return tesseractLoader;
+  }
+
+  async function runLocalB50OCR(file){
+    setOCRProgress(.18,'서버 대신 브라우저 OCR 준비 중…');
+    const T=await ensureTesseract();
+    const canvas=await preprocessB50Image(file);
+    const worker=await T.createWorker('eng',1,{
+      logger:m=>{
+        if(m&&m.status==='recognizing text'&&Number.isFinite(m.progress)){
+          setOCRProgress(.24+m.progress*.58,'브라우저에서 B50 읽는 중…');
+        }
+      }
+    });
+    try{
+      await worker.setParameters({preserve_interword_spaces:'1'});
+      const ret=await worker.recognize(canvas,{}, {tsv:true});
+      const words=parseTsvWords(ret&&ret.data&&ret.data.tsv||'');
+      const parsed=parseGridOCR(words,canvas.width,canvas.height);
+      if(!parsed.length)throw new Error('브라우저 OCR도 기록을 읽지 못했어');
+      return parsed;
+    } finally {
+      await worker.terminate();
+    }
+  }
+
   function parseTsvWords(tsv){const lines=String(tsv||'').split(/\r?\n/),out=[];for(let i=1;i<lines.length;i++){const cols=lines[i].split('\t');if(cols.length<12)continue;const level=Number(cols[0]),text=cols.slice(11).join('\t').trim(),conf=Number(cols[10]);if(level!==5||!text||!Number.isFinite(conf)||conf<0)continue;const x=Number(cols[6]),y=Number(cols[7]),w=Number(cols[8]),h=Number(cols[9]);if(![x,y,w,h].every(Number.isFinite))continue;out.push({text,confidence:conf,bbox:{x0:x,y0:y,x1:x+w,y1:y+h}})}return out}
   function setOCRProgress(p,text){p=Math.max(0,Math.min(1,Number(p)||0));els.ocrProgressBar.style.width=`${Math.round(p*100)}%`;els.ocrProgressText.textContent=`${Math.round(p*100)}%`;if(text)els.ocrStatusText.textContent=text}
   function renderImportCandidates(){
@@ -495,22 +533,38 @@
   function resetImageImport(clearFile=true){if(clearFile){scoreImageFile=null;els.scoreImageInput.value='';els.imagePreview.removeAttribute('src');els.imagePreviewWrap.hidden=true;els.imageDrop.hidden=false}importCandidates=[];els.importResults.hidden=true;els.ocrStatus.hidden=true;setOCRProgress(0,'준비 중…')}
   async function chooseScoreImage(file){if(!file||!file.type.startsWith('image/')){toast('이미지 파일을 골라줘');return}scoreImageFile=file;const info=await loadImageSize(file);els.imagePreview.src=info.url;els.imagePreview.onload=()=>URL.revokeObjectURL(info.url);els.imageDrop.hidden=true;els.imagePreviewWrap.hidden=false;els.importResults.hidden=true;els.ocrStatus.hidden=true;setTimeout(()=>analyzeScoreImage(),120)}
   async function analyzeScoreImage(){
-    if(ocrBusy||!scoreImageFile)return;ocrBusy=true;els.analyzeImageBtn.disabled=true;els.ocrStatus.hidden=false;els.importResults.hidden=true;setOCRProgress(.06,'이미지 준비 중…');
+    if(ocrBusy||!scoreImageFile)return;
+    ocrBusy=true;els.analyzeImageBtn.disabled=true;els.ocrStatus.hidden=false;els.importResults.hidden=true;
+    setOCRProgress(.06,'이미지 준비 중…');
     try{
-      setOCRProgress(.18,'분석 서버로 보내는 중…');
-      const form=new FormData();
-      form.append('image',scoreImageFile,scoreImageFile.name||'arcaea-b50.jpg');
-      setOCRProgress(.28,'AI가 B50을 읽는 중…');
-      const response=await fetch('/api/b50-import',{method:'POST',body:form,cache:'no-store'});
-      let data={};try{data=await response.json()}catch{}
-      if(!response.ok)throw new Error(data?.error||`HTTP ${response.status}`);
-      setOCRProgress(.86,'곡과 세부난이도 매칭 중…');
-      importCandidates=(Array.isArray(data?.entries)?data.entries:[]).map(makeImportCandidate).filter(Boolean).sort((a,b)=>a.rank-b.rank);
-      const uniq=new Map();for(const x of importCandidates){if(!uniq.has(x.rank))uniq.set(x.rank,x)}importCandidates=[...uniq.values()].sort((a,b)=>a.rank-b.rank);
-      setOCRProgress(1,`${importCandidates.length}개 기록을 읽었어`);renderImportCandidates();
-      if(!importCandidates.length)toast('읽은 기록이 없어. Arcaea Online B50 전체 캡처인지 확인해줘');
-    }catch(e){console.error(e);setOCRProgress(0,'분석 실패');toast(e?.message&&e.message.length<80?e.message:'이미지 분석에 실패했어. 잠시 후 다시 시도해줘')}
-    finally{ocrBusy=false;els.analyzeImageBtn.disabled=false}
+      try{
+        setOCRProgress(.14,'분석 서버로 보내는 중…');
+        const form=new FormData();
+        form.append('image',scoreImageFile,scoreImageFile.name||'arcaea-b50.jpg');
+        const response=await fetch('/api/b50-import',{method:'POST',body:form,cache:'no-store'});
+        let data={};try{data=await response.json()}catch{}
+        if(!response.ok)throw new Error((data&&data.error)||('서버 오류 HTTP '+response.status));
+        setOCRProgress(.86,'곡과 세부난이도 매칭 중…');
+        importCandidates=(Array.isArray(data&&data.entries)?data.entries:[]).map(makeImportCandidate).filter(Boolean).sort((a,b)=>a.rank-b.rank);
+        if(!importCandidates.length)throw new Error('서버가 읽은 기록이 0개야');
+      }catch(e){
+        console.warn('server B50 analysis failed, falling back to local OCR',e);
+        toast('서버 분석 실패 → 브라우저 OCR로 다시 시도할게');
+        importCandidates=await runLocalB50OCR(scoreImageFile);
+      }
+      const uniq=new Map();
+      for(const x of importCandidates){if(!uniq.has(x.rank))uniq.set(x.rank,x)}
+      importCandidates=[...uniq.values()].sort((a,b)=>a.rank-b.rank);
+      setOCRProgress(1,String(importCandidates.length)+'개 기록을 읽었어');
+      renderImportCandidates();
+    }catch(e){
+      console.error(e);
+      const msg=(e&&e.message)||'이미지 분석에 실패했어';
+      setOCRProgress(0,'분석 실패 · '+msg.slice(0,45));
+      toast(msg.length<90?msg:'이미지 분석에 실패했어');
+    }finally{
+      ocrBusy=false;els.analyzeImageBtn.disabled=false;
+    }
   }
   function importSelectedRecords(){const picked=importCandidates.filter(x=>x.checked&&x.chart&&x.score);if(!picked.length){toast('등록할 기록을 골라줘');return}let added=0,updated=0,kept=0;for(const x of picked){const r=addOrUpdateRecord(x.chart,x.score,x.result,true);if(r.status==='added')added++;else if(r.status==='updated')updated++;else if(r.status==='kept')kept++}setJSON(KEYS.records,records);renderAll();toast(`${added+updated}개 반영 · ${kept}개는 기존 기록 유지`);setView('b50')}
 
