@@ -628,10 +628,147 @@
     }
   }
 
+  const coverFingerprintCache=new Map();
+  function tinyFingerprint(source,sx,sy,sw,sh){
+    const w=12,h=8,cv=document.createElement('canvas');cv.width=w;cv.height=h;
+    const x=cv.getContext('2d',{alpha:false});if(!x)return null;
+    x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';
+    x.drawImage(source,sx,sy,sw,sh,0,0,w,h);
+    const d=x.getImageData(0,0,w,h).data,out=[];
+    let mr=0,mg=0,mb=0;
+    for(let i=0;i<d.length;i+=4){mr+=d[i];mg+=d[i+1];mb+=d[i+2]}
+    const n=d.length/4;mr/=n;mg/=n;mb/=n;
+    for(let i=0;i<d.length;i+=4){
+      out.push(Math.max(-128,Math.min(127,d[i]-mr)));
+      out.push(Math.max(-128,Math.min(127,d[i+1]-mg)));
+      out.push(Math.max(-128,Math.min(127,d[i+2]-mb)));
+    }
+    return out;
+  }
+  function fpDistance(a,b){
+    if(!a||!b||a.length!==b.length)return Infinity;
+    let s=0;for(let i=0;i<a.length;i++)s+=Math.abs(a[i]-b[i]);
+    return s/a.length;
+  }
+  function cardJacketFingerprints(sheet,rank){
+    const col=(rank-1)%5,row=Math.floor((rank-1)/5),baseX=col*320,baseY=row*220,arr=[];
+    for(const ox of [-5,0,5])for(const oy of [-4,0,4]){
+      const fp=tinyFingerprint(sheet,baseX+116+ox,baseY+28+oy,145,100);
+      if(fp)arr.push(fp);
+    }
+    return arr;
+  }
+  function jacketFileVariants(chart){
+    const base=coverFilename(chart.song),dot=base.lastIndexOf('.jpg');
+    const stem=dot>=0?base.slice(0,dot):base;
+    const diff=diffAbbr(chart.difficulty).toLowerCase();
+    const names=[];
+    if(diff)names.push(stem+'_'+diff+'.jpg');
+    if(diff==='byd')names.push(stem+'_beyond.jpg');
+    names.push(base);
+    return [...new Set(names)];
+  }
+  function loadCoverImage(url){
+    return new Promise((resolve,reject)=>{
+      const img=new Image();img.crossOrigin='anonymous';
+      img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('cover'));
+      img.src=url;
+    });
+  }
+  async function coverFingerprint(chart){
+    const key=normalizeText(chart.song)+'|'+diffAbbr(chart.difficulty);
+    if(coverFingerprintCache.has(key))return coverFingerprintCache.get(key);
+    const promise=(async()=>{
+      for(const name of jacketFileVariants(chart)){
+        try{
+          const img=await loadCoverImage(COVER_BASE+encodeURIComponent(name).replace(/%2F/gi,''));
+          const fp=tinyFingerprint(img,0,0,img.naturalWidth,img.naturalHeight*.69);
+          if(fp)return fp;
+        }catch{}
+      }
+      return null;
+    })();
+    coverFingerprintCache.set(key,promise);
+    return promise;
+  }
+  function jacketChartCandidates(item){
+    let charts=chartDB.filter(x=>Number.isFinite(Number(x.constant)));
+    const lv=String(item.level||'').trim();
+    if(lv){
+      const same=charts.filter(x=>String(x.level||'')===lv);
+      if(same.length>=4)charts=same;
+    }
+    const pot=Number(item.potential);
+    if(Number.isFinite(pot)&&item.score){
+      charts=charts.map(ch=>{
+        const err=Math.abs(playRating(ch.constant,item.score,item.result||'C')-pot);
+        return {ch,err};
+      }).sort((a,b)=>a.err-b.err).filter(x=>x.err<=.42).slice(0,34).map(x=>x.ch);
+    }else if(item.titleGuess){
+      const guess=normalizeText(item.titleGuess);
+      charts=charts.map(ch=>({ch,sim:textSimilarity(guess,normalizeText(ch.song))}))
+        .sort((a,b)=>b.sim-a.sim).slice(0,22).map(x=>x.ch);
+    }else{
+      charts=charts.slice(0,18);
+    }
+    const seen=new Set(),out=[];
+    for(const ch of charts){
+      const k=normalizeText(ch.song)+'|'+diffAbbr(ch.difficulty);
+      if(!seen.has(k)){seen.add(k);out.push(ch)}
+    }
+    return out;
+  }
+  async function matchJacket(sheet,item){
+    const cardFPs=cardJacketFingerprints(sheet,item.rank);
+    if(!cardFPs.length)return null;
+    const candidates=jacketChartCandidates(item);
+    let best=null,second=null;
+    for(const ch of candidates){
+      const fp=await coverFingerprint(ch);if(!fp)continue;
+      let dist=Infinity;for(const cfp of cardFPs)dist=Math.min(dist,fpDistance(cfp,fp));
+      const row={chart:ch,dist};
+      if(!best||dist<best.dist){second=best;best=row}
+      else if(!second||dist<second.dist)second=row;
+    }
+    if(!best)return null;
+    const sim=Math.max(0,Math.min(1,1-best.dist/95));
+    const margin=second?Math.max(0,(second.dist-best.dist)/95):.15;
+    const confidence=Math.max(0,Math.min(1,sim*.82+margin*.55));
+    if(sim<.48||confidence<.52)return null;
+    return {...best,similarity:sim,confidence};
+  }
+  async function enhanceWithJacketMatching(file,items){
+    const targets=items.filter(x=>x&&x.score&&(!x.chart||x.confidence<.78));
+    if(!targets.length)return items;
+    let sheet;
+    try{sheet=await preprocessB50Image(file)}catch{return items}
+    let done=0;
+    for(const item of targets){
+      setOCRProgress(.84+(done/Math.max(1,targets.length))*.14,'자켓으로 곡 확인 중… '+(done+1)+'/'+targets.length);
+      try{
+        const m=await matchJacket(sheet,item);
+        if(m){
+          const song=uniqueSongs().find(s=>normalizeText(s.song)===normalizeText(m.chart.song));
+          const inf=song?inferChart(song,item.score,item.potential,item.level,item.result):null;
+          const chart=inf&&inf.chart?inf.chart:m.chart;
+          if(!item.chart||m.confidence>item.confidence+.04){
+            item.chart=chart;
+            item.titleGuess=chart.song;
+            item.confidence=Math.max(item.confidence||0,m.confidence);
+            item.checked=Boolean(item.chart&&item.confidence>=.58);
+            item.jacketMatched=true;
+          }
+        }
+      }catch(e){console.warn('jacket match failed',item.rank,e)}
+      done++;
+    }
+    return items;
+  }
+
   function parseTsvWords(tsv){const lines=String(tsv||'').split(/\r?\n/),out=[];for(let i=1;i<lines.length;i++){const cols=lines[i].split('\t');if(cols.length<12)continue;const level=Number(cols[0]),text=cols.slice(11).join('\t').trim(),conf=Number(cols[10]);if(level!==5||!text||!Number.isFinite(conf)||conf<0)continue;const x=Number(cols[6]),y=Number(cols[7]),w=Number(cols[8]),h=Number(cols[9]);if(![x,y,w,h].every(Number.isFinite))continue;out.push({text,confidence:conf,bbox:{x0:x,y0:y,x1:x+w,y1:y+h}})}return out}
   function setOCRProgress(p,text){p=Math.max(0,Math.min(1,Number(p)||0));els.ocrProgressBar.style.width=`${Math.round(p*100)}%`;els.ocrProgressText.textContent=`${Math.round(p*100)}%`;if(text)els.ocrStatusText.textContent=text}
   function renderImportCandidates(){
-    els.importResults.hidden=false;const checked=importCandidates.filter(x=>x.checked&&x.chart).length,matched=importCandidates.filter(x=>x.chart).length;els.importSummary.textContent=`점수 ${importCandidates.length}개 · 곡 자동매칭 ${matched}개 · ${checked}개 선택`;
+    els.importResults.hidden=false;const checked=importCandidates.filter(x=>x.checked&&x.chart).length,matched=importCandidates.filter(x=>x.chart).length;const jackets=importCandidates.filter(x=>x.jacketMatched).length;els.importSummary.textContent=`점수 ${importCandidates.length}개 · 곡 자동매칭 ${matched}개 · 자켓보정 ${jackets}개 · ${checked}개 선택`;
     const songs=uniqueSongs().sort((a,b)=>a.song.localeCompare(b.song));
     const datalist=`<datalist id="importSongDatalist">${songs.map(x=>`<option value="${escapeHTML(x.song)}"></option>`).join('')}</datalist>`;
     els.importList.innerHTML=importCandidates.length?importCandidates.map((x,i)=>{const opts=x.chart?chartDB.filter(c=>normalizeText(c.song)===normalizeText(x.chart.song)&&Number.isFinite(Number(c.constant))):[],cls=x.confidence>=.78?'high':x.confidence>=.58?'mid':'low';return `<div class="import-row"><input class="import-check" type="checkbox" data-import-check="${i}" ${x.checked&&x.chart?'checked':''} ${x.chart?'':'disabled'}><div class="import-main">${x.chart?`<strong>#${x.rank} ${escapeHTML(x.chart.song)}</strong><span>${escapeHTML(chartDisplay(x.chart))}${x.potential!=null?` · 인식 성과 ${x.potential.toFixed(3)}`:''}</span><select class="import-chart-select" data-import-chart="${i}">${opts.map(c=>`<option value="${escapeHTML(chartKey(c))}" ${chartKey(c)===chartKey(x.chart)?'selected':''}>${escapeHTML(chartDisplay(c))}</option>`).join('')}</select>`:`<strong>#${x.rank} 곡 자동 인식 실패</strong><span>${x.potential!=null?`성과 ${x.potential.toFixed(3)} · `:''}${x.level?`표시 난이도 ${escapeHTML(x.level)} · `:''}곡명만 선택하면 점수는 그대로 등록돼.</span><input class="import-song-input" data-import-song="${i}" list="importSongDatalist" placeholder="곡명 검색 / 선택" value="">`}</div><div class="import-side"><b>${formatScore(x.score)}</b><div class="confidence ${x.chart?cls:'low'}">${x.chart?`${Math.round(x.confidence*100)}%`:'곡 선택 필요'}</div></div></div>`}).join('')+datalist:'<div class="muted" style="padding:16px">점수를 자동으로 읽지 못했어. Arcaea Online B50 전체 캡처인지 확인해줘.</div>';
@@ -670,6 +807,7 @@
           importCandidates=await enhanceWithJacketMatches(importCandidates,scoreImageFile);
         }
       }catch(e){console.warn('jacket matching skipped',e)}
+      importCandidates=await enhanceWithJacketMatching(scoreImageFile,importCandidates);
       const uniq=new Map();
       for(const x of importCandidates){if(!uniq.has(x.rank))uniq.set(x.rank,x)}
       importCandidates=[...uniq.values()].sort((a,b)=>a.rank-b.rank);
