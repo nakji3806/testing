@@ -82,8 +82,8 @@
           <div><p class="eyebrow">WHAT TO PLAY NEXT</p><h2>곡 추천</h2></div>
           <div class="segmented" id="recommendModes">
             <button class="seg active" data-mode="quick">빠른 기갱</button>
-            <button class="seg" data-mode="entry">B50 진입</button>
-            <button class="seg" data-mode="challenge">도전</button>
+            <button class="seg" data-mode="entry">하위권 재도전</button>
+            <button class="seg" data-mode="challenge">고난도 재도전</button>
           </div>
         </div>
         <p class="recommend-help" id="recommendHelp"></p>
@@ -188,10 +188,10 @@
           <article class="guide-card">
             <div class="guide-card-head"><span class="guide-num">04</span><h3>곡 추천</h3></div>
             <div class="guide-grid">
-              <div class="guide-mini"><strong>빠른 기갱</strong><span>현재 B50에서 비교적 적은 점수 상승으로 올리기 좋은 기록을 찾음.</span></div>
-              <div class="guide-mini"><strong>B50 진입</strong><span>현재 50위 기록을 넘기기 쉬운 비B50/미플레이 후보를 찾음.</span></div>
-              <div class="guide-mini"><strong>도전</strong><span>현재 플레이한 난이도보다 조금 높은 보면 중 도전할 만한 곡을 추천.</span></div>
-              <div class="guide-mini"><strong>자동 계산</strong><span>추천 점수는 현재 기록과 CC를 기준으로 계산한 목표치라 참고용으로 보면 됨.</span></div>
+              <div class="guide-mini"><strong>빠른 기갱</strong><span>내가 이미 플레이한 B50 기록 중 적은 점수 상승으로 올리기 좋은 곡을 찾음.</span></div>
+              <div class="guide-mini"><strong>하위권 재도전</strong><span>B50 하위권이나 저장된 비B50 기록 중 다시 치면 순위를 올리기 좋은 곡을 찾음.</span></div>
+              <div class="guide-mini"><strong>고난도 재도전</strong><span>이미 플레이한 고난도 곡 중 점수 여지가 큰 기록을 다시 추천.</span></div>
+              <div class="guide-mini"><strong>자동 계산</strong><span>추천은 미플레이 곡을 추측하지 않고 저장된 실제 기록과 CC만 기준으로 계산함.</span></div>
             </div>
           </article>
 
@@ -572,24 +572,93 @@
   function estimateScoreForCC(cc){const u=dedupedRecords().filter(r=>r.score>=9000000&&Number.isFinite(r.constant));if(!u.length)return 9800000;const near=u.map(r=>({r,d:Math.abs(r.constant-cc)})).sort((a,b)=>a.d-b.d).slice(0,10);let w=0,s=0;for(const x of near){const ww=1/(.18+x.d);w+=ww;s+=x.r.score*ww}return Math.round(s/w)}
   function recCard(c,target,current,note,challenge=false){const base=current??estimateScoreForCC(c.constant),delta=target?target-base:null;return `<article class="recommend-card">${coverHTML(c.song)}<div class="recommend-main"><strong>${escapeHTML(c.song)}</strong><div class="sub">${escapeHTML(diffAbbr(c.difficulty))} ${escapeHTML(c.level||'?')} · 세부 ${constantText(c.constant)} · ${escapeHTML(note)}</div></div><div class="recommend-target"><b>${target?formatScore(target):'—'}</b><span class="${challenge?'challenge':''}">${target?formatDelta(delta):''}</span></div></article>`}
   function renderRecommendations(){
-    const all=dedupedRecords(),b=b50();if(all.length<5){els.recommendHelp.textContent='기록을 5개 정도 넣으면 플레이 성향을 기준으로 추천을 시작해.';els.recommendList.innerHTML='';return}
-    const db=chartDB.filter(c=>Number.isFinite(c.constant)),map=currentRecordMap(),cut=cutoffRating();let out=[];
-    if(recommendMode==='quick'){
-      els.recommendHelp.textContent='현재 기록에서 비교적 적은 점수 상승으로 B50 순위를 올릴 수 있는 보면이야.';
-      const ideas=b.map(r=>{const cur=playRating(r.constant,r.score,r.result),tpr=Math.min(Number(r.constant)+2.2,cur+.05),target=inverseScore(tpr,r.constant,'C');return{r,target,delta:target?target-r.score:Infinity}}).filter(x=>x.delta>0&&x.delta<=160000).sort((a,b)=>a.delta-b.delta).slice(0,16);
-      out=ideas.map(x=>recCard(x.r,x.target,x.r.score,'작은 폭 기갱'));
-    }else if(recommendMode==='entry'){
-      els.recommendHelp.textContent=cut==null?'아직 50개 전이라, 현재 실력대에서 채우기 좋은 미플레이/비B50 보면을 보여줘.':'현재 50위 기록을 넘기기 쉬운 후보를 보여줘.';
-      const bkeys=new Set(b.map(r=>r.chartKey||chartKey(r))),targetRating=cut??Math.max(...b.map(r=>playRating(r.constant,r.score,r.result)))-.8;
-      const ideas=[];for(const c of db){const key=chartKey(c);if(bkeys.has(key))continue;const target=inverseScore(targetRating+.003,c.constant,'C');if(!target||target>10000000||target<9000000)continue;const ex=map.get(key),pred=ex?.score??estimateScoreForCC(c.constant);ideas.push({c,target,current:ex?.score||null,gap:target-pred})}
-      ideas.sort((a,b)=>a.gap-b.gap||b.c.constant-a.c.constant);out=ideas.slice(0,20).map(x=>recCard(x.c,x.target,x.current,x.current?'기존 기록에서 진입':'예상 진입선',x.gap>90000));
-    }else{
-      els.recommendHelp.textContent='현재 플레이한 정수보다 조금 높은 보면 중, 현실적으로 도전해볼 만한 후보야.';
-      const maxCC=Math.max(...all.filter(r=>r.result==='C').map(r=>Number(r.constant)||0),9),targetRating=cut??Math.max(...b.map(r=>playRating(r.constant,r.score,r.result)))-.5;const ideas=[];
-      for(const c of db){if(c.constant<maxCC+.2||c.constant>maxCC+1.3)continue;const target=inverseScore(targetRating,c.constant,'C');if(!target||target>10000000||target<8800000)continue;ideas.push({c,target,current:map.get(chartKey(c))?.score||null})}
-      ideas.sort((a,b)=>a.c.constant-b.c.constant||a.target-b.target);out=ideas.slice(0,20).map(x=>recCard(x.c,x.target,x.current,'상위 정수 도전',true));
+    const all=dedupedRecords(),b=b50();
+    if(all.length<5){
+      els.recommendHelp.textContent='기록을 5개 정도 넣으면 플레이한 곡 안에서 추천을 시작해.';
+      els.recommendList.innerHTML='';
+      return;
     }
-    els.recommendList.innerHTML=out.length?out.join(''):'<div class="empty-state" style="min-height:180px;grid-column:1/-1"><span>조건에 맞는 추천을 아직 못 찾았어.</span></div>';
+
+    const cut=cutoffRating();
+    const bIndex=new Map(b.map((r,i)=>[(r.chartKey||chartKey(r)),i]));
+    let out=[];
+
+    if(recommendMode==='quick'){
+      els.recommendHelp.textContent='이미 플레이한 B50 기록 중, 비교적 적은 점수 상승으로 성과를 올리기 좋은 곡이야.';
+      const ideas=b.map((r,i)=>{
+        const cur=recordRating(r);
+        const gain=i>=35?.035:.045;
+        const targetRating=Math.min(Number(r.constant)+2.2,cur+gain);
+        const target=inverseScore(targetRating,r.constant,'C');
+        const delta=target?target-r.score:Infinity;
+        return {r,target,delta,rank:i+1,gain};
+      })
+      .filter(x=>x.delta>0&&x.delta<=130000&&x.target<=10000000)
+      .sort((a,b)=>(a.delta/(a.gain||.01))-(b.delta/(b.gain||.01))||b.rank-a.rank)
+      .slice(0,16);
+      out=ideas.map(x=>recCard(x.r,x.target,x.r.score,'작은 폭 기갱'));
+
+    }else if(recommendMode==='entry'){
+      els.recommendHelp.textContent='이미 플레이한 기록 중 B50 하위권이나 B50 밖에서, 다시 치면 순위를 올리기 좋은 곡이야.';
+
+      const pool=all.map(r=>({
+        r,
+        rank:bIndex.has(r.chartKey||chartKey(r))?bIndex.get(r.chartKey||chartKey(r))+1:null,
+        rating:recordRating(r)
+      })).filter(x=>x.rank==null||x.rank>=31);
+
+      const targetBase=cut??Math.min(...b.map(r=>recordRating(r)));
+      const ideas=pool.map(x=>{
+        const desired=x.rank==null
+          ? targetBase+.025
+          : Math.max(x.rating+.055,targetBase+(x.rank>=46?.025:.01));
+        const target=inverseScore(Math.min(Number(x.r.constant)+2.2,desired),x.r.constant,'C');
+        const delta=target?target-x.r.score:Infinity;
+        return {...x,target,delta};
+      })
+      .filter(x=>x.delta>0&&x.delta<=180000&&x.target<=10000000)
+      .sort((a,b)=>a.delta-b.delta||(b.rank||99)-(a.rank||99))
+      .slice(0,18);
+
+      out=ideas.map(x=>recCard(
+        x.r,
+        x.target,
+        x.r.score,
+        x.rank==null?'B50 재진입 후보':('#'+x.rank+' 재도전'),
+        x.delta>100000
+      ));
+
+    }else{
+      els.recommendHelp.textContent='이미 플레이한 고난도 기록 중, 아직 점수 여지가 커서 다시 도전해볼 만한 곡이야.';
+
+      const sortedCC=[...all].filter(r=>Number.isFinite(Number(r.constant))).sort((a,b)=>Number(b.constant)-Number(a.constant));
+      const topCount=Math.max(8,Math.ceil(sortedCC.length*.35));
+      const hard=sortedCC.slice(0,topCount);
+
+      const ideas=hard.map(r=>{
+        const nextMilestone=r.score<9500000?9500000:r.score<9800000?9800000:r.score<9900000?9900000:Math.min(10000000,r.score+50000);
+        const target=Math.min(10000000,Math.max(r.score+25000,nextMilestone));
+        const delta=target-r.score;
+        const rank=bIndex.has(r.chartKey||chartKey(r))?bIndex.get(r.chartKey||chartKey(r))+1:null;
+        const room=(Number(r.constant)+2.2)-recordRating(r);
+        return {r,target,delta,rank,room};
+      })
+      .filter(x=>x.delta>0&&x.delta<=260000&&x.room>.04)
+      .sort((a,b)=>Number(b.r.constant)-Number(a.r.constant)||b.room-a.room||a.delta-b.delta)
+      .slice(0,18);
+
+      out=ideas.map(x=>recCard(
+        x.r,
+        x.target,
+        x.r.score,
+        x.r.score<9800000?'EX 재도전':(x.r.score<9900000?'EX+ 재도전':'고난도 기갱'),
+        true
+      ));
+    }
+
+    els.recommendList.innerHTML=out.length
+      ?out.join('')
+      :'<div class="empty-state" style="min-height:180px;grid-column:1/-1"><span>현재 저장된 기록에서는 조건에 맞는 재도전 후보를 못 찾았어.</span></div>';
   }
 
   function renderAll(){renderProfile();renderDBStatus();renderB50();renderRecords();renderRecommendations()}
