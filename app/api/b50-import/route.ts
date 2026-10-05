@@ -46,6 +46,7 @@ type CleanEntry = {
   rank: number
   title: string
   score: number | null
+  scoreVerify?: number | null
   potential: number | null
   level: string | null
   result: 'C' | 'F' | 'P' | 'L' | null
@@ -208,6 +209,74 @@ If a title or score is unclear, keep the rank and use "" or null instead of skip
   throw error
 }
 
+async function verifyScoreRange(input: {
+  apiKey: string
+  model: string
+  bytes: Buffer
+  mimeType: string
+  startRank: number
+  endRank: number
+}) {
+  const row = Math.floor((input.startRank - 1) / 5) + 1
+  const prompt = `This is an Arcaea Online B50 screenshot with a fixed 5-column x 10-row grid.
+Focus ONLY on grid row ${row}, ranks #${input.startRank}-#${input.endRank}.
+Read ONLY the large score number near the bottom of each card.
+Ignore song title, POTENTIAL, rank text, and difficulty.
+The score is normally between 7,000,000 and 10,100,000.
+Be extremely careful with each digit, especially 0/6/8/9 and repeated digits.
+
+Return JSON only:
+{"scores":[{"rank":${input.startRank},"score":9963797}]}
+
+Return exactly one item for every requested rank. Use null if truly unreadable.`
+
+  const models = [...new Set([input.model, 'gemini-3.8-flash', 'gemini-3.5-flash-lite'])]
+  for (const model of models) {
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': input.apiKey,
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(22_000),
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: input.mimeType, data: input.bytes.toString('base64') } },
+              { text: prompt },
+            ],
+          }],
+        }),
+      })
+      if (!response.ok) continue
+      const body = await response.json() as GeminiBody
+      const parsed = parseJsonText(extractText(body)) as { scores?: Array<{ rank?: unknown; score?: unknown }> } | null
+      const out = new Map<number, number | null>()
+      for (const item of parsed?.scores ?? []) {
+        const rank = Number(item.rank)
+        if (!Number.isInteger(rank) || rank < input.startRank || rank > input.endRank) continue
+        const digits = String(item.score ?? '').replace(/[^0-9]/g, '')
+        const n = digits ? Number(digits) : NaN
+        out.set(rank, Number.isInteger(n) && n >= 7_000_000 && n <= 10_100_000 ? n : null)
+      }
+      const result: Array<{ rank: number; score: number | null }> = []
+      for (let rank = input.startRank; rank <= input.endRank; rank++) {
+        result.push({ rank, score: out.has(rank) ? out.get(rank)! : null })
+      }
+      return result
+    } catch {
+      // Try next model.
+    }
+  }
+  return Array.from({ length: input.endRank - input.startRank + 1 }, (_, i) => ({
+    rank: input.startRank + i,
+    score: null,
+  }))
+}
+
+
 export async function GET() {
   const apiKey = process.env.GEMINI_API_KEY?.trim()
   if (!apiKey) {
@@ -314,6 +383,36 @@ export async function POST(request: Request) {
     }
 
     entries.sort((a, b) => a.rank - b.rank)
+
+    // Second independent pass: read only the five score numbers in each row.
+    // This is intentionally separate from title/POTENTIAL reading so digit errors
+    // can be cross-checked on the client against the chart constant + POTENTIAL.
+    const scoreRows = Array.from({ length: 10 }, (_, row) => {
+      const startRank = row * 5 + 1
+      return [startRank, startRank + 4] as const
+    })
+    for (let i = 0; i < scoreRows.length; i += 3) {
+      const batch = scoreRows.slice(i, i + 3)
+      const verified = await Promise.all(
+        batch.map(([startRank, endRank]) =>
+          verifyScoreRange({
+            apiKey,
+            model,
+            bytes,
+            mimeType: image.type,
+            startRank,
+            endRank,
+          }),
+        ),
+      )
+      for (const row of verified) {
+        for (const item of row) {
+          const entry = entries[item.rank - 1]
+          if (entry) entry.scoreVerify = item.score
+        }
+      }
+    }
+
     const readable = entries.filter(x => x.score || x.title).length
 
     if (failedGroups === ranges.length) {
