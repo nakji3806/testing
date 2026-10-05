@@ -116,23 +116,20 @@ async function readRange(input: {
 }) {
   const startRow = Math.floor((input.startRank - 1) / 5) + 1
   const endRow = Math.floor((input.endRank - 1) / 5) + 1
-  const prompt = `Focus ONLY on ranks #${input.startRank}-#${input.endRank}, which are grid rows ${startRow}-${endRow}.
+  const prompt = `${SYSTEM_PROMPT}
+
+Focus ONLY on ranks #${input.startRank}-#${input.endRank}, which are grid rows ${startRow}-${endRow}.
 There are exactly ${input.endRank - input.startRank + 1} requested cards.
 Read each requested card separately. Return exactly ${input.endRank - input.startRank + 1} entries in rank order.
 If a title or score is unclear, keep the rank and use "" or null instead of skipping the card.`
 
-  const modelCandidates = [...new Set([
-    input.model,
-    'gemini-3.8-flash',
-    'gemini-3.5-flash-lite',
-  ])]
-
-  let response: Response | null = null
+  const models = [...new Set([input.model, 'gemini-3.8-flash', 'gemini-3.5-flash-lite'])]
   let lastStatus = 0
+  let lastDetail = ''
 
-  for (const candidateModel of modelCandidates) {
+  for (const model of models) {
     try {
-      const candidate = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${candidateModel}:generateContent`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: 'POST',
         headers: {
           'x-goog-api-key': input.apiKey,
@@ -141,73 +138,74 @@ If a title or score is unclear, keep the rank and use "" or null instead of skip
         cache: 'no-store',
         signal: AbortSignal.timeout(35_000),
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
           contents: [{
-            role: 'user',
             parts: [
-              { inlineData: { mimeType: input.mimeType, data: input.bytes.toString('base64') } },
+              {
+                inline_data: {
+                  mime_type: input.mimeType,
+                  data: input.bytes.toString('base64'),
+                },
+              },
               { text: prompt },
             ],
           }],
-          generationConfig: {
-            temperature: 0,
-            maxOutputTokens: 4096,
-          },
         }),
       })
-      lastStatus = candidate.status
-      if (candidate.ok) {
-        response = candidate
-        break
+
+      lastStatus = response.status
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '')
+        lastDetail = detail.slice(0, 300)
+        if ([401, 403, 404, 429, 503].includes(response.status)) continue
+        const err = new Error(`Gemini HTTP ${response.status}`)
+        ;(err as Error & { status?: number; detail?: string }).status = response.status
+        ;(err as Error & { detail?: string }).detail = lastDetail
+        throw err
       }
-      // 2.5 access is restricted for many newer projects. Try a current model.
-      if (![401, 403, 404, 429, 503].includes(candidate.status)) {
-        response = candidate
-        break
+
+      const body = await response.json() as GeminiBody
+      const parsed = parseJsonText(extractText(body))
+      const raw = Array.isArray(parsed?.entries) ? parsed!.entries! : []
+
+      const byRank = new Map<number, CleanEntry>()
+      for (const item of raw) {
+        const clean = cleanEntry(item, input.startRank, input.endRank)
+        if (clean) {
+          const old = byRank.get(clean.rank)
+          if (!old || clean.confidence > old.confidence) byRank.set(clean.rank, clean)
+        }
       }
-    } catch {
-      // Try the next model candidate.
+
+      const entries: CleanEntry[] = []
+      for (let rank = input.startRank; rank <= input.endRank; rank++) {
+        entries.push(byRank.get(rank) ?? {
+          rank,
+          title: '',
+          score: null,
+          potential: null,
+          level: null,
+          result: null,
+          confidence: 0,
+        })
+      }
+      return entries
+    } catch (error) {
+      if (error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name)) {
+        lastStatus = 504
+        lastDetail = 'timeout'
+        continue
+      }
+      const status = (error as { status?: number } | undefined)?.status
+      if (status) lastStatus = status
+      const detail = (error as { detail?: string } | undefined)?.detail
+      if (detail) lastDetail = detail
     }
   }
 
-  if (!response) {
-    const error = new Error(`Gemini unavailable ${lastStatus || ''}`.trim())
-    ;(error as Error & { status?: number }).status = lastStatus || 502
-    throw error
-  }
-
-  if (!response.ok) {
-    const error = new Error(`Gemini HTTP ${response.status}`)
-    ;(error as Error & { status?: number }).status = response.status
-    throw error
-  }
-
-  const body = await response.json() as GeminiBody
-  const parsed = parseJsonText(extractText(body))
-  const raw = Array.isArray(parsed?.entries) ? parsed!.entries! : []
-
-  const byRank = new Map<number, CleanEntry>()
-  for (const item of raw) {
-    const clean = cleanEntry(item, input.startRank, input.endRank)
-    if (clean) {
-      const old = byRank.get(clean.rank)
-      if (!old || clean.confidence > old.confidence) byRank.set(clean.rank, clean)
-    }
-  }
-
-  const entries: CleanEntry[] = []
-  for (let rank = input.startRank; rank <= input.endRank; rank++) {
-    entries.push(byRank.get(rank) ?? {
-      rank,
-      title: '',
-      score: null,
-      potential: null,
-      level: null,
-      result: null,
-      confidence: 0,
-    })
-  }
-  return entries
+  const error = new Error(`Gemini unavailable ${lastStatus || ''}`.trim())
+  ;(error as Error & { status?: number; detail?: string }).status = lastStatus || 502
+  ;(error as Error & { detail?: string }).detail = lastDetail
+  throw error
 }
 
 export async function GET() {
@@ -272,6 +270,7 @@ export async function POST(request: Request) {
     const entries: CleanEntry[] = []
     let failedGroups = 0
     let rateLimited = false
+    const failureStatuses: number[] = []
 
     // Keep concurrency at 2 so Gemini does not reject five full-image
     // vision calls at once on lower request quotas.
@@ -297,6 +296,7 @@ export async function POST(request: Request) {
         } else {
           failedGroups += 1
           const status = (result.reason as { status?: number } | undefined)?.status
+          if (status) failureStatuses.push(status)
           if (status === 429) rateLimited = true
           for (let rank = startRank; rank <= endRank; rank++) {
             entries.push({
@@ -318,7 +318,7 @@ export async function POST(request: Request) {
 
     if (failedGroups === ranges.length) {
       return NextResponse.json(
-        { error: rateLimited ? 'AI 요청 한도에 걸렸어. 잠깐 뒤 다시 시도해줘.' : '비전 AI 분석 서버가 응답하지 않았어.' },
+        { error: rateLimited ? 'AI 요청 한도에 걸렸어. 잠깐 뒤 다시 시도해줘.' : '비전 AI 분석 서버가 응답하지 않았어.', statuses: failureStatuses },
         { status: rateLimited ? 429 : 502 },
       )
     }
