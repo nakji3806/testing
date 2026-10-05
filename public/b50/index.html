@@ -245,11 +245,11 @@
   function aliases(c){return [c.song,c.artist,...String(c.alias||'').split('|')].map(normalizeText).filter(Boolean)}
 
   function scoreModifier(score){score=Number(score)||0;if(score>=10000000)return 2;if(score>=9800000)return 1+(score-9800000)/200000;return (score-9500000)/300000}
-  function playRating(constant,score,result='C'){if(!Number.isFinite(Number(constant)))return null;return Math.max(0,Number(constant)+scoreModifier(score)+(result==='C'?0.2:0))}
-  function recordRating(r){const imported=Number(r&&r.importedPotential);const sameScore=Number(r&&r.importedScore)===Number(r&&r.score);return Number.isFinite(imported)&&sameScore?imported:playRating(r.constant,r.score,r.result)}
+  function playRating(constant,score,result='C'){if(!Number.isFinite(Number(constant)))return null;return Math.max(0,Number(constant)+scoreModifier(score)+(result==='L'?0:0.2))}
+  function recordRating(r){return playRating(r.constant,r.score,r.result)}
   function inverseScore(targetRating,constant,result='C'){
     if(!Number.isFinite(Number(constant)))return null;
-    const mod=targetRating-Number(constant)-(result==='C'?0.2:0);let score;
+    const mod=targetRating-Number(constant)-(result==='L'?0:0.2);let score;
     if(mod<=1)score=9500000+mod*300000;else if(mod<=2)score=9800000+(mod-1)*200000;else return null;
     return Math.max(0,Math.min(10000000,Math.ceil(score)));
   }
@@ -407,7 +407,7 @@
   }
 
   function dedupedRecords(){const m=new Map();for(const r of records){const key=r.chartKey||chartKey(r),pr=recordRating(r),old=m.get(key);if(!old||pr>recordRating(old)||(pr===recordRating(old)&&r.score>old.score))m.set(key,r)}return[...m.values()]}
-  function b50(){return dedupedRecords().filter(r=>recordRating(r)!==null).sort((a,b)=>{const d=recordRating(b)-recordRating(a);if(Math.abs(d)>.0005)return d;const ar=Number(a.sourceRank),br=Number(b.sourceRank);if(Number.isFinite(ar)&&Number.isFinite(br)&&ar!==br)return ar-br;return b.score-a.score}).slice(0,50)}
+  function b50(){return dedupedRecords().filter(r=>recordRating(r)!==null).sort((a,b)=>{const d=recordRating(b)-recordRating(a);if(Math.abs(d)>1e-9)return d;const ar=Number(a.sourceRank),br=Number(b.sourceRank);if(Number.isFinite(ar)&&Number.isFinite(br)&&ar!==br)return ar-br;return b.score-a.score}).slice(0,50)}
   function cutoffRating(){const b=b50();return b.length>=50?recordRating(b[49]):null}
   function rankFor(rating){const vals=b50().map(r=>recordRating(r));return 1+vals.filter(x=>x>rating+1e-9).length}
 
@@ -528,7 +528,7 @@
     let best=null;
     const havePotential=Number.isFinite(Number(potential));
     const expectedCC=havePotential
-      ? Number(potential)-scoreModifier(score)-(result==='C'?0.2:0)
+      ? Number(potential)-scoreModifier(score)-(result==='L'?0:0.2)
       : null;
     for(const ch of charts){
       let penalty=0;
