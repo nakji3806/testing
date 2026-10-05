@@ -497,10 +497,9 @@
   async function analyzeScoreImage(){
     if(ocrBusy||!scoreImageFile)return;ocrBusy=true;els.analyzeImageBtn.disabled=true;els.ocrStatus.hidden=false;els.importResults.hidden=true;setOCRProgress(.06,'이미지 준비 중…');
     try{
-      const canvas=await preprocessB50Image(scoreImageFile);
       setOCRProgress(.18,'분석 서버로 보내는 중…');
-      const blob=await canvasToBlob(canvas,'image/jpeg',.9);
-      const form=new FormData();form.append('image',blob,'arcaea-b50.jpg');
+      const form=new FormData();
+      form.append('image',scoreImageFile,scoreImageFile.name||'arcaea-b50.jpg');
       setOCRProgress(.28,'AI가 B50을 읽는 중…');
       const response=await fetch('/api/b50-import',{method:'POST',body:form,cache:'no-store'});
       let data={};try{data=await response.json()}catch{}
