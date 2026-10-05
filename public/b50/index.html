@@ -355,7 +355,7 @@
     return out;
   }
   async function enhanceWithJacketMatches(items,file){
-    const targets=items.filter(x=>!x.chart||x.confidence<.74).slice(0,28);
+    const targets=items.filter(x=>x.score&&(!x.chart||x.confidence<.74));
     if(!targets.length)return items;
     const sheet=await preprocessB50Image(file);
     let done=0;
@@ -656,28 +656,80 @@
     }
     return out;
   }
+  function numericCardCanvas(sheet,rank){
+    const col=(rank-1)%5,row=Math.floor((rank-1)/5),bx=col*320,by=row*220;
+    const cv=document.createElement('canvas');cv.width=720;cv.height=180;
+    const x=cv.getContext('2d',{alpha:false});if(!x)return null;
+    x.fillStyle='#fff';x.fillRect(0,0,cv.width,cv.height);
+    x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';
+    // POTENTIAL number on the left of the card.
+    x.drawImage(sheet,bx+18,by+42,92,88,0,0,250,180);
+    // Score along the lower middle of the card.
+    x.drawImage(sheet,bx+105,by+118,185,62,270,4,450,172);
+    return cv;
+  }
+  function parseNumericCardText(text){
+    const s=String(text||'').replace(/[Oo]/g,'0').replace(/[Il|]/g,'1');
+    const scores=numericScoreCandidates([s,...s.split(/\s+/)]);
+    const score=scores.length?Math.max(...scores):null;
+    const potential=parsePotential([s,...s.split(/\s+/)]);
+    const levelMatch=s.match(/(?:^|\s)(12|11|10|[1-9])\+?(?:\s|$)/);
+    return {score,potential,level:levelMatch?levelMatch[0].trim():null,raw:s.trim()};
+  }
   async function runLocalB50OCR(file){
-    setOCRProgress(.18,'50칸 숫자를 따로 읽는 중…');
+    setOCRProgress(.18,'서버 대신 브라우저 OCR 준비 중…');
     const T=await ensureTesseract();
-    const sheet=await preprocessB50Image(file);
-    const numeric=makeNumericSheet(sheet);
+    const canvas=await preprocessB50Image(file);
     const worker=await T.createWorker('eng',1,{
       logger:m=>{
         if(m&&m.status==='recognizing text'&&Number.isFinite(m.progress)){
-          setOCRProgress(.24+m.progress*.54,'점수·POTENTIAL 인식 중…');
+          setOCRProgress(.22+m.progress*.42,'B50 전체를 먼저 읽는 중…');
         }
       }
     });
     try{
-      await worker.setParameters({
-        tessedit_char_whitelist:"0123456789+.,'",
-        tessedit_pageseg_mode:'11',
-        preserve_interword_spaces:'1'
-      });
-      const ret=await worker.recognize(numeric,{}, {tsv:true});
+      await worker.setParameters({preserve_interword_spaces:'1'});
+      const ret=await worker.recognize(canvas,{}, {tsv:true});
       const words=parseTsvWords(ret&&ret.data&&ret.data.tsv||'');
-      const parsed=parseNumericGrid(words,numeric.width,numeric.height);
-      if(!parsed.length)throw new Error('숫자 OCR이 기록을 읽지 못했어');
+      let parsed=parseGridOCR(words,canvas.width,canvas.height);
+      const byRank=new Map(parsed.map(x=>[x.rank,x]));
+      const missing=[];
+      for(let rank=1;rank<=50;rank++)if(!byRank.get(rank)?.score)missing.push(rank);
+
+      if(missing.length){
+        await worker.setParameters({
+          preserve_interword_spaces:'1',
+          tessedit_pageseg_mode:'6',
+          tessedit_char_whitelist:"0123456789.'+"
+        });
+        let done=0;
+        for(const rank of missing){
+          setOCRProgress(.65+(done/Math.max(1,missing.length))*.18,'빠진 점수 다시 읽는 중… '+(done+1)+'/'+missing.length);
+          try{
+            const crop=numericCardCanvas(canvas,rank);
+            if(crop){
+              const rr=await worker.recognize(crop);
+              const n=parseNumericCardText(rr&&rr.data&&rr.data.text);
+              const old=byRank.get(rank);
+              if(n.score){
+                const item=old||{rank,chart:null,score:null,result:'C',potential:null,level:null,confidence:0,raw:'',titleGuess:'',checked:false};
+                item.score=n.score;
+                if(item.potential==null&&n.potential!=null)item.potential=n.potential;
+                if(!item.level&&n.level)item.level=n.level;
+                item.raw=[item.raw,n.raw].filter(Boolean).join(' ');
+                byRank.set(rank,item);
+              }
+            }
+          }catch(e){console.warn('targeted OCR failed',rank,e)}
+          done++;
+        }
+      }
+
+      // Keep all 50 positions visible. Missing values can be corrected manually.
+      parsed=[];
+      for(let rank=1;rank<=50;rank++){
+        parsed.push(byRank.get(rank)||{rank,chart:null,score:null,result:'C',potential:null,level:null,confidence:0,raw:'',titleGuess:'',checked:false});
+      }
       return parsed;
     } finally {
       await worker.terminate();
@@ -798,7 +850,7 @@
     return {...best,similarity:sim,confidence};
   }
   async function enhanceWithJacketMatching(file,items){
-    const targets=items.filter(x=>x&&x.score&&(!x.chart||x.confidence<.78));
+    const targets=items.filter(x=>x&&x.score&&(!x.chart||x.confidence<.82));
     if(!targets.length)return items;
     let sheet;
     try{sheet=await preprocessB50Image(file)}catch{return items}
@@ -834,16 +886,44 @@
   function parseTsvWords(tsv){const lines=String(tsv||'').split(/\r?\n/),out=[];for(let i=1;i<lines.length;i++){const cols=lines[i].split('\t');if(cols.length<12)continue;const level=Number(cols[0]),text=cols.slice(11).join('\t').trim(),conf=Number(cols[10]);if(level!==5||!text||!Number.isFinite(conf)||conf<0)continue;const x=Number(cols[6]),y=Number(cols[7]),w=Number(cols[8]),h=Number(cols[9]);if(![x,y,w,h].every(Number.isFinite))continue;out.push({text,confidence:conf,bbox:{x0:x,y0:y,x1:x+w,y1:y+h}})}return out}
   function setOCRProgress(p,text){p=Math.max(0,Math.min(1,Number(p)||0));els.ocrProgressBar.style.width=`${Math.round(p*100)}%`;els.ocrProgressText.textContent=`${Math.round(p*100)}%`;if(text)els.ocrStatusText.textContent=text}
   function renderImportCandidates(){
-    els.importResults.hidden=false;const checked=importCandidates.filter(x=>x.checked&&x.chart).length,matched=importCandidates.filter(x=>x.chart).length;const jackets=importCandidates.filter(x=>x.jacketMatched).length;els.importSummary.textContent=`점수 ${importCandidates.length}개 · 곡 자동매칭 ${matched}개 · 자켓보정 ${jackets}개 · ${checked}개 선택`;
+    els.importResults.hidden=false;
+    const checked=importCandidates.filter(x=>x.checked&&x.chart&&x.score).length;
+    const matched=importCandidates.filter(x=>x.chart).length;
+    const scoreRead=importCandidates.filter(x=>x.score).length;
+    const jackets=importCandidates.filter(x=>x.jacketMatched).length;
+    els.importSummary.textContent='50칸 · 점수 '+scoreRead+'개 · 곡 자동매칭 '+matched+'개 · 자켓보정 '+jackets+'개 · '+checked+'개 선택';
     const songs=uniqueSongs().sort((a,b)=>a.song.localeCompare(b.song));
-    const datalist=`<datalist id="importSongDatalist">${songs.map(x=>`<option value="${escapeHTML(x.song)}"></option>`).join('')}</datalist>`;
-    els.importList.innerHTML=importCandidates.length?importCandidates.map((x,i)=>{const opts=x.chart?chartDB.filter(c=>normalizeText(c.song)===normalizeText(x.chart.song)&&Number.isFinite(Number(c.constant))):[],cls=x.confidence>=.78?'high':x.confidence>=.58?'mid':'low';return `<div class="import-row"><input class="import-check" type="checkbox" data-import-check="${i}" ${x.checked&&x.chart?'checked':''} ${x.chart?'':'disabled'}><div class="import-main">${x.chart?`<strong>#${x.rank} ${escapeHTML(x.chart.song)}</strong><span>${escapeHTML(chartDisplay(x.chart))}${x.potential!=null?` · 인식 성과 ${x.potential.toFixed(3)}`:''}</span><select class="import-chart-select" data-import-chart="${i}">${opts.map(c=>`<option value="${escapeHTML(chartKey(c))}" ${chartKey(c)===chartKey(x.chart)?'selected':''}>${escapeHTML(chartDisplay(c))}</option>`).join('')}</select>`:`<strong>#${x.rank} 곡 자동 인식 실패</strong><span>${x.potential!=null?`성과 ${x.potential.toFixed(3)} · `:''}${x.level?`표시 난이도 ${escapeHTML(x.level)} · `:''}곡명만 선택하면 점수는 그대로 등록돼.</span><input class="import-song-input" data-import-song="${i}" list="importSongDatalist" placeholder="곡명 검색 / 선택" value="">`}</div><div class="import-side"><b>${formatScore(x.score)}</b><div class="confidence ${x.chart?cls:'low'}">${x.chart?`${Math.round(x.confidence*100)}%`:'곡 선택 필요'}</div></div></div>`}).join('')+datalist:'<div class="muted" style="padding:16px">점수를 자동으로 읽지 못했어. Arcaea Online B50 전체 캡처인지 확인해줘.</div>';
+    const datalist='<datalist id="importSongDatalist">'+songs.map(x=>'<option value="'+escapeHTML(x.song)+'"></option>').join('')+'</datalist>';
+    els.importList.innerHTML=importCandidates.length?importCandidates.map((x,i)=>{
+      const opts=x.chart?chartDB.filter(c=>normalizeText(c.song)===normalizeText(x.chart.song)&&Number.isFinite(Number(c.constant))):[];
+      const cls=x.confidence>=.78?'high':x.confidence>=.58?'mid':'low';
+      const main=x.chart
+        ? '<strong>#'+x.rank+' '+escapeHTML(x.chart.song)+'</strong><span>'+escapeHTML(chartDisplay(x.chart))+(x.potential!=null?' · 인식 성과 '+Number(x.potential).toFixed(3):'')+'</span><select class="import-chart-select" data-import-chart="'+i+'">'+opts.map(c=>'<option value="'+escapeHTML(chartKey(c))+'" '+(chartKey(c)===chartKey(x.chart)?'selected':'')+'>'+escapeHTML(chartDisplay(c))+'</option>').join('')+'</select>'
+        : '<strong>#'+x.rank+' 곡 자동 인식 실패</strong><span>'+(x.potential!=null?'성과 '+Number(x.potential).toFixed(3)+' · ':'')+(x.level?'표시 난이도 '+escapeHTML(x.level)+' · ':'')+'자켓/곡명을 다시 맞출 수 있어.</span><input class="import-song-input" data-import-song="'+i+'" list="importSongDatalist" placeholder="곡명 검색 / 선택" value="">';
+      const scoreValue=x.score?formatScore(x.score):'';
+      return '<div class="import-row"><input class="import-check" type="checkbox" data-import-check="'+i+'" '+(x.checked&&x.chart&&x.score?'checked':'')+' '+(x.chart&&x.score?'':'disabled')+'><div class="import-main">'+main+'</div><div class="import-side"><input class="mini-input import-score-input" data-import-score="'+i+'" inputmode="numeric" placeholder="점수" value="'+escapeHTML(scoreValue)+'"><div class="confidence '+(x.chart?cls:'low')+'">'+(x.score?(x.chart?Math.round(x.confidence*100)+'%':'곡 선택 필요'):'점수 확인 필요')+'</div></div></div>';
+    }).join('')+datalist:'<div class="muted" style="padding:16px">인식 결과가 없어.</div>';
+
     qsa('[data-import-check]',els.importList).forEach(b=>b.addEventListener('change',()=>{importCandidates[Number(b.dataset.importCheck)].checked=b.checked;renderImportSummary()}));
-    qsa('[data-import-chart]',els.importList).forEach(sel=>sel.addEventListener('change',()=>{const i=Number(sel.dataset.importChart),c=chartDB.find(x=>chartKey(x)===sel.value);if(c){importCandidates[i].chart=c;importCandidates[i].checked=true;renderImportSummary()}}));
-    qsa('[data-import-song]',els.importList).forEach(inp=>inp.addEventListener('change',()=>{const i=Number(inp.dataset.importSong),v=inp.value.trim();if(!v)return;let song=uniqueSongs().find(x=>normalizeText(x.song)===normalizeText(v));if(!song){const b=bestSongMatch(v,v);if(b&&b.score>=.55)song=b}if(!song){toast('곡을 찾지 못했어');return}const x=importCandidates[i],inf=inferChart(song,x.score,x.potential,x.level,x.result);if(!inf){toast('해당 곡의 보면을 찾지 못했어');return}x.chart=inf.chart;x.confidence=Math.max(x.confidence,.58);x.checked=true;renderImportCandidates()}));
+    qsa('[data-import-score]',els.importList).forEach(inp=>inp.addEventListener('change',()=>{
+      const i=Number(inp.dataset.importScore),n=parseScore(inp.value);
+      importCandidates[i].score=n||null;
+      inp.value=n?formatScore(n):'';
+      if(importCandidates[i].chart&&n)importCandidates[i].checked=true;
+      renderImportCandidates();
+    }));
+    qsa('[data-import-chart]',els.importList).forEach(sel=>sel.addEventListener('change',()=>{const i=Number(sel.dataset.importChart),ch=chartDB.find(x=>chartKey(x)===sel.value);if(ch){importCandidates[i].chart=ch;importCandidates[i].checked=Boolean(importCandidates[i].score);renderImportSummary()}}));
+    qsa('[data-import-song]',els.importList).forEach(inp=>inp.addEventListener('change',()=>{const i=Number(inp.dataset.importSong),v=inp.value.trim();if(!v)return;let song=uniqueSongs().find(x=>normalizeText(x.song)===normalizeText(v));if(!song){const b=bestSongMatch(v,v);if(b&&b.score>=.55)song=b}if(!song){toast('곡을 찾지 못했어');return}const x=importCandidates[i];if(!x.score){toast('먼저 점수를 확인해줘');return}const inf=inferChart(song,x.score,x.potential,x.level,x.result);if(!inf){toast('해당 곡의 보면을 찾지 못했어');return}x.chart=inf.chart;x.confidence=Math.max(x.confidence,.58);x.checked=true;renderImportCandidates()}));
     renderImportSummary();
   }
-  function renderImportSummary(){const n=importCandidates.filter(x=>x.checked&&x.chart).length,matched=importCandidates.filter(x=>x.chart).length;els.importSummary.textContent=`점수 ${importCandidates.length}개 · 곡 자동매칭 ${matched}개 · ${n}개 선택`;els.importSelectedBtn.disabled=n===0;els.importSelectedBtn.textContent=n?`${n}개 기록 등록`:'선택한 기록 등록'}
+  function renderImportSummary(){
+    const n=importCandidates.filter(x=>x.checked&&x.chart&&x.score).length;
+    const matched=importCandidates.filter(x=>x.chart).length;
+    const scoreRead=importCandidates.filter(x=>x.score).length;
+    const jackets=importCandidates.filter(x=>x.jacketMatched).length;
+    els.importSummary.textContent='50칸 · 점수 '+scoreRead+'개 · 곡 자동매칭 '+matched+'개 · 자켓보정 '+jackets+'개 · '+n+'개 선택';
+    els.importSelectedBtn.disabled=n===0;els.importSelectedBtn.textContent=n?n+'개 기록 등록':'선택한 기록 등록';
+  }
   function resetImageImport(clearFile=true){if(clearFile){scoreImageFile=null;els.scoreImageInput.value='';els.imagePreview.removeAttribute('src');els.imagePreviewWrap.hidden=true;els.imageDrop.hidden=false}importCandidates=[];els.importResults.hidden=true;els.ocrStatus.hidden=true;setOCRProgress(0,'준비 중…')}
   async function chooseScoreImage(file){if(!file||!file.type.startsWith('image/')){toast('이미지 파일을 골라줘');return}scoreImageFile=file;const info=await loadImageSize(file);els.imagePreview.src=info.url;els.imagePreview.onload=()=>URL.revokeObjectURL(info.url);els.imageDrop.hidden=true;els.imagePreviewWrap.hidden=false;els.importResults.hidden=true;els.ocrStatus.hidden=true;setTimeout(()=>analyzeScoreImage(),120)}
   async function analyzeScoreImage(){
