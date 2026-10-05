@@ -423,7 +423,7 @@
   function renderDBStatus(){const v=dbVersion();els.dbVersion.textContent=v==='fallback'?'테스트':v;els.settingsDbStatus.textContent=`${v} · ${chartDB.length}보면`}
   function renderProfile(){els.profileName.textContent=profile?.nickname||'PLAYER';els.nicknameInput.value=profile?.nickname||''}
   function renderRecords(){
-    const term=normalizeText(els.recordFilter.value);const all=dedupedRecords().sort((a,b)=>recordRating(b)-recordRating(a));
+    const term=normalizeText(els.recordFilter.value);const all=dedupedRecords().sort((a,b)=>{const ar=Number(a.sourceRank),br=Number(b.sourceRank),ai=Number.isFinite(ar),bi=Number.isFinite(br);if(ai&&bi&&ar!==br)return ar-br;if(ai!==bi)return ai?-1:1;return recordRating(b)-recordRating(a)});
     const list=all.filter(r=>!term||normalizeText(`${r.song} ${r.artist} ${r.difficulty}`).includes(term));
     els.recordList.innerHTML=list.length?list.map(r=>`<div class="record-row"><div class="record-name"><strong>${escapeHTML(r.song)}</strong><span>${escapeHTML(diffAbbr(r.difficulty))} ${escapeHTML(r.level)} · 세부 ${constantText(r.constant)} · ${grade(r.score)}${r.result==='L'?' · LOST':''}</span></div><div class="record-score">${formatScore(r.score)}</div><button class="delete-btn" data-delete="${escapeHTML(r.id)}">×</button></div>`).join(''):'<div class="muted" style="padding:16px 0;font-size:11px">아직 저장한 기록이 없어.</div>';
     qsa('[data-delete]',els.recordList).forEach(b=>b.addEventListener('click',()=>deleteRecord(b.dataset.delete)));
@@ -467,7 +467,7 @@
     if(!chart||!Number.isFinite(Number(chart.constant))||score<100000||score>10100000)return {status:'invalid'};
     const key=chartKey(chart);
     const haveImported=Number.isFinite(Number(importedPotential));
-    const nextPR=haveImported?Number(importedPotential):playRating(chart.constant,score,result);
+    const nextPR=playRating(chart.constant,score,result);
     const existing=records.find(r=>(r.chartKey||chartKey(r))===key);
     if(existing){
       const old=recordRating(existing);
@@ -1028,6 +1028,7 @@
 
       setOCRProgress(1,'50칸 비전 분석 완료');
       renderImportCandidates();
+      repairImportedRanksFromCandidates();
       const scoreCount=importCandidates.filter(x=>x.score).length;
       const titleCount=importCandidates.filter(x=>x.titleGuess).length;
       toast('비전 AI: 점수 '+scoreCount+'개 · 곡명 '+titleCount+'개 읽음');
@@ -1049,6 +1050,18 @@
 
   function startProfile(){const nickname=els.firstNickname.value.trim();if(!nickname){toast('닉네임을 입력해줘');els.firstNickname.focus();return}profile={nickname};records=[];setJSON(KEYS.profile,profile);setJSON(KEYS.records,records);els.onboarding.hidden=true;els.appShell.hidden=false;renderAll();toast('시작했어')}
   function resetProfile(){if(!confirm('닉네임과 모든 점수 기록을 이 브라우저에서 지울까?'))return;localStorage.removeItem(KEYS.profile);localStorage.removeItem(KEYS.records);profile=null;records=[];els.settingsDialog.close();els.appShell.hidden=true;els.onboarding.hidden=false;els.firstNickname.value='';els.firstNickname.focus()}
+
+  function repairImportedRanksFromCandidates(){
+    if(!importCandidates.length||!records.length)return;
+    let changed=false;
+    for(const x of importCandidates){
+      if(!x.chart||!x.score||!Number.isFinite(Number(x.rank)))continue;
+      const key=chartKey(x.chart);
+      const r=records.find(v=>(v.chartKey||chartKey(v))===key&&Number(v.score)===Number(x.score));
+      if(r&&Number(r.sourceRank)!==Number(x.rank)){r.sourceRank=Number(x.rank);changed=true}
+    }
+    if(changed)setJSON(KEYS.records,records);
+  }
 
   function bind(){
     els.startBtn.addEventListener('click',startProfile);els.firstNickname.addEventListener('keydown',e=>{if(e.key==='Enter')startProfile()});
