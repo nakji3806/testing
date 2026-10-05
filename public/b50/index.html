@@ -180,10 +180,14 @@
   const UPSTREAM_DATA_URL = 'https://raw.githubusercontent.com/TechnicalVessel/Arcaea-Chart-List/main/arcaea_chart_list.csv';
   const LOCAL_DATA_URL = './data/songs.csv';
   const COVER_BASE = 'https://raw.githubusercontent.com/hikxri/arcaea-calculator/main/arcaea_song_files/';
+  const JACKET_CATALOG_URL = 'https://raw.githubusercontent.com/DrSmoothl/arc-update-ptt-calc/main/src/data/catalog.json';
+  const JACKET_CATALOG_BASE = 'https://raw.githubusercontent.com/DrSmoothl/arc-update-ptt-calc/main/public/';
+  const JACKET_WIKI_INDEX_URL = 'https://raw.githubusercontent.com/QGlint/cdmga_links/main/arcaea_radom/arc_songs_mini.json';
   const KEYS = {
     profile: 'b50pocket.profile.v2',
     records: 'b50pocket.records.v2',
-    chartdb: 'b50pocket.chartdb.v2'
+    chartdb: 'b50pocket.chartdb.v2',
+    jackets: 'b50pocket.jackets.v1'
   };
 
   const NONUNICODE = {
@@ -217,6 +221,8 @@
   let profile = null;
   let records = [];
   let chartDB = [];
+  let jacketMap = {};
+  let jacketFuzzy = [];
   let selectedChart = null;
   let selectedResult = 'C';
   let recommendMode = 'quick';
