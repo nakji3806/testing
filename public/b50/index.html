@@ -605,23 +605,79 @@
     return tesseractLoader;
   }
 
+  function drawThresholdCrop(source,sx,sy,sw,sh,ctx,dx,dy,dw,dh){
+    const tmp=document.createElement('canvas');tmp.width=Math.max(1,Math.round(dw));tmp.height=Math.max(1,Math.round(dh));
+    const t=tmp.getContext('2d',{alpha:false});if(!t)return;
+    t.fillStyle='#fff';t.fillRect(0,0,tmp.width,tmp.height);
+    t.imageSmoothingEnabled=true;t.imageSmoothingQuality='high';
+    t.drawImage(source,sx,sy,sw,sh,0,0,tmp.width,tmp.height);
+    const im=t.getImageData(0,0,tmp.width,tmp.height),d=im.data;
+    for(let i=0;i<d.length;i+=4){
+      const lum=d[i]*.299+d[i+1]*.587+d[i+2]*.114;
+      const v=lum>132?0:255;
+      d[i]=d[i+1]=d[i+2]=v;d[i+3]=255;
+    }
+    t.putImageData(im,0,0);
+    ctx.drawImage(tmp,dx,dy,dw,dh);
+  }
+  function makeNumericSheet(sheet){
+    const cw=260,ch=126,out=document.createElement('canvas');out.width=cw*5;out.height=ch*10;
+    const x=out.getContext('2d',{alpha:false});if(!x)throw new Error('숫자 OCR 캔버스를 만들지 못했어');
+    x.fillStyle='#fff';x.fillRect(0,0,out.width,out.height);
+    for(let rank=1;rank<=50;rank++){
+      const col=(rank-1)%5,row=Math.floor((rank-1)/5),bx=col*320,by=row*220,dx=col*cw,dy=row*ch;
+      // Level (top right)
+      drawThresholdCrop(sheet,bx+258,by+1,61,47,x,dx+184,dy+4,70,44);
+      // POTENTIAL value (left)
+      drawThresholdCrop(sheet,bx+4,by+58,82,55,x,dx+4,dy+5,112,60);
+      // Score (bottom of jacket)
+      drawThresholdCrop(sheet,bx+102,by+139,177,46,x,dx+28,dy+67,226,54);
+    }
+    return out;
+  }
+  function parseNumericGrid(words,width,height){
+    const cw=width/5,ch=height/10,out=[];
+    for(let rank=1;rank<=50;rank++){
+      const col=(rank-1)%5,row=Math.floor((rank-1)/5),x0=col*cw,y0=row*ch;
+      const ww=(words||[]).filter(w=>{
+        const cx=(w.bbox.x0+w.bbox.x1)/2,cy=(w.bbox.y0+w.bbox.y1)/2;
+        return cx>=x0&&cx<x0+cw&&cy>=y0&&cy<y0+ch;
+      }).sort((a,b)=>a.bbox.y0-b.bbox.y0||a.bbox.x0-b.bbox.x0);
+      const topLeft=ww.filter(w=>(w.bbox.y0+w.bbox.y1)/2<y0+ch*.58&&(w.bbox.x0+w.bbox.x1)/2<x0+cw*.62).map(w=>w.text);
+      const topRight=ww.filter(w=>(w.bbox.y0+w.bbox.y1)/2<y0+ch*.58&&(w.bbox.x0+w.bbox.x1)/2>=x0+cw*.62).map(w=>w.text);
+      const bottom=ww.filter(w=>(w.bbox.y0+w.bbox.y1)/2>=y0+ch*.48).map(w=>w.text);
+      const scoreCandidates=numericScoreCandidates([...bottom,bottom.join(''),bottom.join(' ')]);
+      const score=scoreCandidates.length?Math.max(...scoreCandidates):null;
+      const potential=parsePotential([...topLeft,topLeft.join(''),topLeft.join(' ')]);
+      let level=null;
+      const lv=topRight.join('').replace(/[^0-9+]/g,'');
+      const lm=lv.match(/(12|11|10|[7-9])(\+)?/);if(lm)level=lm[1]+(lm[2]||'');
+      if(score)out.push({rank,chart:null,score,result:'C',potential,level,confidence:0,titleGuess:'',raw:[...topLeft,...topRight,...bottom].join(' '),checked:false,numericOCR:true});
+    }
+    return out;
+  }
   async function runLocalB50OCR(file){
-    setOCRProgress(.18,'서버 대신 브라우저 OCR 준비 중…');
+    setOCRProgress(.18,'50칸 숫자를 따로 읽는 중…');
     const T=await ensureTesseract();
-    const canvas=await preprocessB50Image(file);
+    const sheet=await preprocessB50Image(file);
+    const numeric=makeNumericSheet(sheet);
     const worker=await T.createWorker('eng',1,{
       logger:m=>{
         if(m&&m.status==='recognizing text'&&Number.isFinite(m.progress)){
-          setOCRProgress(.24+m.progress*.58,'브라우저에서 B50 읽는 중…');
+          setOCRProgress(.24+m.progress*.54,'점수·POTENTIAL 인식 중…');
         }
       }
     });
     try{
-      await worker.setParameters({preserve_interword_spaces:'1'});
-      const ret=await worker.recognize(canvas,{}, {tsv:true});
+      await worker.setParameters({
+        tessedit_char_whitelist:"0123456789+.,'",
+        tessedit_pageseg_mode:'11',
+        preserve_interword_spaces:'1'
+      });
+      const ret=await worker.recognize(numeric,{}, {tsv:true});
       const words=parseTsvWords(ret&&ret.data&&ret.data.tsv||'');
-      const parsed=parseGridOCR(words,canvas.width,canvas.height);
-      if(!parsed.length)throw new Error('브라우저 OCR도 기록을 읽지 못했어');
+      const parsed=parseNumericGrid(words,numeric.width,numeric.height);
+      if(!parsed.length)throw new Error('숫자 OCR이 기록을 읽지 못했어');
       return parsed;
     } finally {
       await worker.terminate();
@@ -653,7 +709,7 @@
   function cardJacketFingerprints(sheet,rank){
     const col=(rank-1)%5,row=Math.floor((rank-1)/5),baseX=col*320,baseY=row*220,arr=[];
     for(const ox of [-5,0,5])for(const oy of [-4,0,4]){
-      const fp=tinyFingerprint(sheet,baseX+116+ox,baseY+28+oy,145,100);
+      const fp=tinyFingerprint(sheet,baseX+108+ox,baseY+31+oy,148,126);
       if(fp)arr.push(fp);
     }
     return arr;
@@ -682,7 +738,7 @@
       for(const name of jacketFileVariants(chart)){
         try{
           const img=await loadCoverImage(COVER_BASE+encodeURIComponent(name).replace(/%2F/gi,''));
-          const fp=tinyFingerprint(img,0,0,img.naturalWidth,img.naturalHeight*.69);
+          const side=Math.min(img.naturalWidth,img.naturalHeight);const fp=tinyFingerprint(img,(img.naturalWidth-side)/2,(img.naturalHeight-side)/2,side,side);
           if(fp)return fp;
         }catch{}
       }
@@ -700,10 +756,14 @@
     }
     const pot=Number(item.potential);
     if(Number.isFinite(pot)&&item.score){
-      charts=charts.map(ch=>{
-        const err=Math.abs(playRating(ch.constant,item.score,item.result||'C')-pot);
-        return {ch,err};
-      }).sort((a,b)=>a.err-b.err).filter(x=>x.err<=.42).slice(0,34).map(x=>x.ch);
+      const ranked=charts.map(ch=>{
+        const errClear=Math.abs(playRating(ch.constant,item.score,'C')-pot);
+        const errNoClear=Math.abs(playRating(ch.constant,item.score,'L')-pot);
+        return {ch,err:Math.min(errClear,errNoClear)};
+      }).sort((a,b)=>a.err-b.err);
+      let close=ranked.filter(x=>x.err<=.075).slice(0,18);
+      if(close.length<3)close=ranked.filter(x=>x.err<=.23).slice(0,28);
+      charts=close.map(x=>x.ch);
     }else if(item.titleGuess){
       const guess=normalizeText(item.titleGuess);
       charts=charts.map(ch=>({ch,sim:textSimilarity(guess,normalizeText(ch.song))}))
@@ -754,6 +814,12 @@
           if(!item.chart||m.confidence>item.confidence+.04){
             item.chart=chart;
             item.titleGuess=chart.song;
+            if(Number.isFinite(Number(item.potential))){
+              const ec=Math.abs(playRating(chart.constant,item.score,'C')-Number(item.potential));
+              const en=Math.abs(playRating(chart.constant,item.score,'L')-Number(item.potential));
+              if(en+0.035<ec)item.result=(item.result&&item.result!=='C')?item.result:'L';
+              else if(ec<=en+0.035)item.result='C';
+            }
             item.confidence=Math.max(item.confidence||0,m.confidence);
             item.checked=Boolean(item.chart&&item.confidence>=.58);
             item.jacketMatched=true;
