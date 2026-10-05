@@ -271,12 +271,34 @@
   function coverFilename(title){
     let s=NONUNICODE[title]||title;
     s=String(s).toLowerCase().replace(/ /g,'_').replace(/[!*#\[\]?:,|"/\\]/g,'');
-    return `${s}.jpg`;
+    return s+'.jpg';
   }
   function coverURL(title){return COVER_BASE+encodeURIComponent(coverFilename(title)).replace(/%2F/gi,'')}
+  function addJacketSource(map,title,url){
+    if(!title||!url)return;
+    const key=normalizeText(title);if(!key)return;
+    if(!map[key])map[key]=[];
+    if(!map[key].includes(url))map[key].push(url);
+  }
+  function coverSources(title){
+    const key=normalizeText(title),out=[];
+    for(const u of (jacketMap[key]||[]))if(u&&!out.includes(u))out.push(u);
+    if(key.length>=4){
+      const fuzzy=jacketFuzzy.filter(x=>x.key!==key&&(x.key.startsWith(key)||key.startsWith(x.key))).sort((a,b)=>Math.abs(a.key.length-key.length)-Math.abs(b.key.length-key.length));
+      for(const x of fuzzy.slice(0,2))if(x.url&&!out.includes(x.url))out.push(x.url);
+    }
+    const legacy=coverURL(title);if(!out.includes(legacy))out.push(legacy);
+    return out;
+  }
+  function coverFallback(img){
+    const sources=coverSources(img.dataset.coverTitle||'');
+    const next=(Number(img.dataset.coverIndex)||0)+1;
+    if(next<sources.length){img.dataset.coverIndex=String(next);img.src=sources[next];return}
+    img.remove();
+  }
   function coverHTML(title,extra=''){
-    const [c1,c2]=hashColors(title), id='cv'+Math.random().toString(36).slice(2,8);
-    return `<div class="cover ${extra}" id="${id}" style="--c1:${c1};--c2:${c2}"><div class="fallback">${escapeHTML(initials(title))}</div><img loading="lazy" src="${escapeHTML(coverURL(title))}" alt="" onload="this.parentElement.classList.add('loaded')" onerror="this.remove()"></div>`;
+    const colors=hashColors(title),id='cv'+Math.random().toString(36).slice(2,8),sources=coverSources(title),src=sources[0]||coverURL(title);
+    return '<div class="cover '+escapeHTML(extra)+'" id="'+id+'" style="--c1:'+colors[0]+';--c2:'+colors[1]+'"><div class="fallback">'+escapeHTML(initials(title))+'</div><img loading="lazy" data-cover-title="'+escapeHTML(title)+'" data-cover-index="0" src="'+escapeHTML(src)+'" alt="" onload="this.parentElement.classList.add(\'loaded\')" onerror="coverFallback(this)"></div>';
   }
 
 
