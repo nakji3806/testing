@@ -425,7 +425,7 @@
   function renderRecords(){
     const term=normalizeText(els.recordFilter.value);const all=dedupedRecords().sort((a,b)=>{const ar=Number(a.sourceRank),br=Number(b.sourceRank),ai=Number.isFinite(ar),bi=Number.isFinite(br);if(ai&&bi&&ar!==br)return ar-br;if(ai!==bi)return ai?-1:1;return recordRating(b)-recordRating(a)});
     const list=all.filter(r=>!term||normalizeText(`${r.song} ${r.artist} ${r.difficulty}`).includes(term));
-    els.recordList.innerHTML=list.length?list.map(r=>`<div class="record-row"><div class="record-name"><strong>${escapeHTML(r.song)}</strong><span>${escapeHTML(diffAbbr(r.difficulty))} ${escapeHTML(r.level)} · 세부 ${constantText(r.constant)} · ${grade(r.score)}${r.result==='L'?' · LOST':''}</span></div><div class="record-score">${formatScore(r.score)}</div><button class="delete-btn" data-delete="${escapeHTML(r.id)}">×</button></div>`).join(''):'<div class="muted" style="padding:16px 0;font-size:11px">아직 저장한 기록이 없어.</div>';
+    els.recordList.innerHTML=list.length?list.map(r=>`<div class="record-row"><div class="record-name"><strong>${Number.isFinite(Number(r.sourceRank))?'#'+Number(r.sourceRank)+' ':''}${escapeHTML(r.song)}</strong><span>${escapeHTML(diffAbbr(r.difficulty))} ${escapeHTML(r.level)} · 세부 ${constantText(r.constant)} · ${grade(r.score)}${r.result==='L'?' · LOST':''}</span></div><div class="record-score">${formatScore(r.score)}</div><button class="delete-btn" data-delete="${escapeHTML(r.id)}">×</button></div>`).join(''):'<div class="muted" style="padding:16px 0;font-size:11px">아직 저장한 기록이 없어.</div>';
     qsa('[data-delete]',els.recordList).forEach(b=>b.addEventListener('click',()=>deleteRecord(b.dataset.delete)));
   }
 
@@ -471,7 +471,19 @@
     const existing=records.find(r=>(r.chartKey||chartKey(r))===key);
     if(existing){
       const old=recordRating(existing);
-      if(nextPR<old-1e-9||(Math.abs(nextPR-old)<1e-9&&score<=existing.score))return {status:'kept'};
+      if(nextPR<old-1e-9)return {status:'kept'};
+      if(Math.abs(nextPR-old)<1e-9&&score<=existing.score){
+        if(score===existing.score&&Number.isFinite(Number(sourceRank))){
+          Object.assign(existing,{
+            result,
+            importedPotential:haveImported?Number(importedPotential):existing.importedPotential,
+            importedScore:haveImported?score:existing.importedScore,
+            sourceRank:Number(sourceRank),
+            updatedAt:new Date().toISOString()
+          });
+        }
+        return {status:'kept'};
+      }
       Object.assign(existing,{
         song:chart.song,artist:chart.artist,difficulty:chart.difficulty,level:chart.level,constant:chart.constant,
         score,result,chartKey:key,updatedAt:new Date().toISOString(),
@@ -654,11 +666,15 @@
       else if(score2){score=score2;scoreVerified=true}
     }
 
+    const calculatedPotential=chart&&score?playRating(chart.constant,score,result):null;
+    const potentialDelta=potential!=null&&calculatedPotential!=null?Math.abs(calculatedPotential-potential):null;
+    const potentialOK=potentialDelta==null||potentialDelta<=.015;
     return {
       rank,chart,score,result,potential,level,confidence,raw:titleGuess,titleGuess,
-      checked:Boolean(chart&&score&&confidence>=.60),
+      checked:Boolean(chart&&score&&confidence>=.60&&potentialOK),
       scoreFirst:score1,scoreVerify:score2,scoreVerified,
-      scoreDisagrees:Boolean(score1&&score2&&score1!==score2)
+      scoreDisagrees:Boolean(score1&&score2&&score1!==score2),
+      calculatedPotential,potentialDelta,potentialOK
     }
   }
   let tesseractLoader=null;
@@ -974,7 +990,7 @@
         ? '<strong>#'+x.rank+' '+escapeHTML(x.chart.song)+'</strong><span>'+escapeHTML(chartDisplay(x.chart))+(x.potential!=null?' · 인식 성과 '+Number(x.potential).toFixed(3):'')+'</span><select class="import-chart-select" data-import-chart="'+i+'">'+opts.map(c=>'<option value="'+escapeHTML(chartKey(c))+'" '+(chartKey(c)===chartKey(x.chart)?'selected':'')+'>'+escapeHTML(chartDisplay(c))+'</option>').join('')+'</select>'
         : '<strong>#'+x.rank+' 곡 자동 인식 실패</strong><span>'+(x.potential!=null?'성과 '+Number(x.potential).toFixed(3)+' · ':'')+(x.level?'표시 난이도 '+escapeHTML(x.level)+' · ':'')+'자켓/곡명을 다시 맞출 수 있어.</span><input class="import-song-input" data-import-song="'+i+'" list="importSongDatalist" placeholder="곡명 검색 / 선택" value="">';
       const scoreValue=x.score?formatScore(x.score):'';
-      return '<div class="import-row"><input class="import-check" type="checkbox" data-import-check="'+i+'" '+(x.checked&&x.chart&&x.score?'checked':'')+' '+(x.chart&&x.score?'':'disabled')+'><div class="import-main">'+main+'</div><div class="import-side"><input class="mini-input import-score-input" data-import-score="'+i+'" inputmode="numeric" placeholder="점수" value="'+escapeHTML(scoreValue)+'"><div class="confidence '+(x.chart?cls:'low')+'">'+(x.score?(x.scoreDisagrees?'숫자 재검토':(x.chart?Math.round(x.confidence*100)+'%':'곡 선택 필요')):'점수 확인 필요')+'</div></div></div>';
+      return '<div class="import-row"><input class="import-check" type="checkbox" data-import-check="'+i+'" '+(x.checked&&x.chart&&x.score?'checked':'')+' '+(x.chart&&x.score?'':'disabled')+'><div class="import-main">'+main+'</div><div class="import-side"><input class="mini-input import-score-input" data-import-score="'+i+'" inputmode="numeric" placeholder="점수" value="'+escapeHTML(scoreValue)+'"><div class="confidence '+(x.chart?cls:'low')+'">'+(x.score?(!x.potentialOK?'상수/성과 재검토':(x.scoreDisagrees?'숫자 재검토':(x.chart?Math.round(x.confidence*100)+'%':'곡 선택 필요'))):'점수 확인 필요')+'</div></div></div>';
     }).join('')+datalist:'<div class="muted" style="padding:16px">인식 결과가 없어.</div>';
 
     qsa('[data-import-check]',els.importList).forEach(b=>b.addEventListener('change',()=>{importCandidates[Number(b.dataset.importCheck)].checked=b.checked;renderImportSummary()}));
