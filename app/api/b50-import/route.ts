@@ -121,29 +121,60 @@ There are exactly ${input.endRank - input.startRank + 1} requested cards.
 Read each requested card separately. Return exactly ${input.endRank - input.startRank + 1} entries in rank order.
 If a title or score is unclear, keep the rank and use "" or null instead of skipping the card.`
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${input.model}:generateContent`, {
-    method: 'POST',
-    headers: {
-      'x-goog-api-key': input.apiKey,
-      'Content-Type': 'application/json',
-    },
-    cache: 'no-store',
-    signal: AbortSignal.timeout(45_000),
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{
-        role: 'user',
-        parts: [
-          { inlineData: { mimeType: input.mimeType, data: input.bytes.toString('base64') } },
-          { text: prompt },
-        ],
-      }],
-      generationConfig: {
-        temperature: 0,
-        maxOutputTokens: 4096,
-      },
-    }),
-  })
+  const modelCandidates = [...new Set([
+    input.model,
+    'gemini-3.8-flash',
+    'gemini-3.5-flash-lite',
+  ])]
+
+  let response: Response | null = null
+  let lastStatus = 0
+
+  for (const candidateModel of modelCandidates) {
+    try {
+      const candidate = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${candidateModel}:generateContent`, {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': input.apiKey,
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(35_000),
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [{
+            role: 'user',
+            parts: [
+              { inlineData: { mimeType: input.mimeType, data: input.bytes.toString('base64') } },
+              { text: prompt },
+            ],
+          }],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 4096,
+          },
+        }),
+      })
+      lastStatus = candidate.status
+      if (candidate.ok) {
+        response = candidate
+        break
+      }
+      // 2.5 access is restricted for many newer projects. Try a current model.
+      if (![401, 403, 404, 429, 503].includes(candidate.status)) {
+        response = candidate
+        break
+      }
+    } catch {
+      // Try the next model candidate.
+    }
+  }
+
+  if (!response) {
+    const error = new Error(`Gemini unavailable ${lastStatus || ''}`.trim())
+    ;(error as Error & { status?: number }).status = lastStatus || 502
+    throw error
+  }
 
   if (!response.ok) {
     const error = new Error(`Gemini HTTP ${response.status}`)
@@ -186,7 +217,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '이미지 분석 서버가 아직 준비되지 않았어.' }, { status: 503 })
     }
 
-    const model = process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash'
+    const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash'
     if (!/^[a-zA-Z0-9._-]+$/.test(model)) {
       return NextResponse.json({ error: '이미지 분석 모델 설정 오류' }, { status: 503 })
     }
