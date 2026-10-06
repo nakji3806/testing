@@ -94,7 +94,7 @@ Rules:
 - title: the song title shown near the upper center. Do not use the artist name.
 - difficulty: one of PST, PRS, FTR, BYD, ETR, INS. Convert PAST/PRESENT/FUTURE/BEYOND/ETERNAL/INSCRIBED to those abbreviations. The screen may show text like "FUTURE 9+".
 - level: displayed chart level such as 8, 8+, 9, 9+, 10, 10+, 11, 11+, 12. If the screen shows "FUTURE 9+", return difficulty "FTR" and level "9+".
-- score: the large current score in the middle. Remove separators. Do NOT use HIGH SCORE, previous score, fragments, memories, or note counts.
+- score: the large current score in the middle. Remove separators. It may be 0 if the play was abandoned immediately. Do NOT use HIGH SCORE, previous score, fragments, memories, or note counts.
 - result: "L" only for TRACK LOST. Return "C" for TRACK COMPLETE, FULL RECALL, or PURE MEMORY.
 - confidence: 0..1 confidence for title+difficulty+score.
 - Ignore account Potential and the Potential change at the top.
@@ -141,7 +141,7 @@ Rules:
         const conf = Number(parsed.confidence)
         const confidence = Number.isFinite(conf) ? Math.max(0, Math.min(1, conf)) : 0.6
 
-        if (!title || !difficulty || !Number.isInteger(score) || score < 7_000_000 || score > 10_100_000) continue
+        if (!title || !difficulty || !Number.isInteger(score) || score < 0 || score > 10_100_000) continue
 
         return NextResponse.json({
           title,
