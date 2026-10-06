@@ -612,6 +612,8 @@ body{background:var(--bg);color:var(--text)}
   let ocrBusy = false;
   let installPrompt = null;
   let pendingSharedResult = null;
+  let pendingNativeResultData = null;
+  let nativeChartDbReady = false;
   const $ = id => document.getElementById(id);
   const qsa = (s,root=document) => [...root.querySelectorAll(s)];
 
@@ -1652,6 +1654,11 @@ body{background:var(--bg);color:var(--text)}
   window.b50HandleNativeResult=function(data){
     try{
       if(typeof data==='string')data=JSON.parse(data);
+      if(!nativeChartDbReady){
+        pendingNativeResultData=data||{};
+        toast('곡 데이터 준비 중…');
+        return;
+      }
       showSharedResult(data||{});
     }catch(error){
       console.error(error);
@@ -1763,7 +1770,7 @@ body{background:var(--bg);color:var(--text)}
     els.resetScoresBtn.addEventListener('click',()=>{if(!confirm('모든 점수 기록을 삭제하시겠습니까?'))return;records=[];setJSON(KEYS.records,records);renderAll();toast('점수 기록을 모두 삭제했습니다')});els.resetProfileBtn.addEventListener('click',resetProfile);
   }
 
-  async function init(){cacheEls();profile=getJSON(KEYS.profile,null);records=getJSON(KEYS.records,[]);loadCachedJackets();const cached=getJSON(KEYS.chartdb,null);if(cached?.rows&&validateDB(cached.rows))chartDB=mergePatches(cached.rows);else chartDB=mergePatches(FALLBACK_CHARTS);bind();const nativeApp=/B50PocketAndroid/i.test(navigator.userAgent);if(nativeApp){els.installPwaBtn.hidden=true;const copy=document.querySelector('.result-share-copy span');if(copy)copy.textContent='Arcaea 결과 화면의 공유에서 B50 Pocket을 선택하면 바로 기록을 불러옵니다.'}else{window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;els.installPwaBtn.textContent='앱 설치'});window.addEventListener('appinstalled',()=>{installPrompt=null;els.installPwaBtn.textContent='설치됨';els.installPwaBtn.disabled=true})}if(profile?.nickname){els.appShell.hidden=false;renderAll()}else{els.onboarding.hidden=false;setTimeout(()=>els.firstNickname.focus(),50)}if(!nativeApp&&'serviceWorker'in navigator&&location.protocol.startsWith('http')){try{await navigator.serviceWorker.register('./sw.js')}catch{}}await syncDB(false);syncJackets(false);if(!nativeApp&&new URLSearchParams(location.search).get('share_error')==='1'){history.replaceState({},'',location.pathname);toast('공유 이미지를 받지 못했습니다.')}if(!nativeApp&&new URLSearchParams(location.search).get('shared')==='1')setTimeout(consumeSharedResult,180)}
+  async function init(){cacheEls();profile=getJSON(KEYS.profile,null);records=getJSON(KEYS.records,[]);loadCachedJackets();const cached=getJSON(KEYS.chartdb,null);if(cached?.rows&&validateDB(cached.rows))chartDB=mergePatches(cached.rows);else chartDB=mergePatches(FALLBACK_CHARTS);bind();const nativeApp=/B50PocketAndroid/i.test(navigator.userAgent);if(nativeApp){els.installPwaBtn.hidden=true;const copy=document.querySelector('.result-share-copy span');if(copy)copy.textContent='Arcaea 결과 화면의 공유에서 B50 Pocket을 선택하면 바로 기록을 불러옵니다.'}else{window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;els.installPwaBtn.textContent='앱 설치'});window.addEventListener('appinstalled',()=>{installPrompt=null;els.installPwaBtn.textContent='설치됨';els.installPwaBtn.disabled=true})}if(profile?.nickname){els.appShell.hidden=false;renderAll()}else{els.onboarding.hidden=false;setTimeout(()=>els.firstNickname.focus(),50)}if(!nativeApp&&'serviceWorker'in navigator&&location.protocol.startsWith('http')){try{await navigator.serviceWorker.register('./sw.js')}catch{}}await syncDB(false);nativeChartDbReady=true;if(pendingNativeResultData){const queued=pendingNativeResultData;pendingNativeResultData=null;setTimeout(()=>showSharedResult(queued),80)}syncJackets(false);if(!nativeApp&&new URLSearchParams(location.search).get('share_error')==='1'){history.replaceState({},'',location.pathname);toast('공유 이미지를 받지 못했습니다.')}if(!nativeApp&&new URLSearchParams(location.search).get('shared')==='1')setTimeout(consumeSharedResult,180)}
   document.addEventListener('DOMContentLoaded',init);
 })();
 
