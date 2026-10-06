@@ -42,15 +42,25 @@ function parseJson(text: string): ResultPayload | null {
 
 function normalizeDifficulty(value: unknown) {
   const s = String(value ?? '').trim().toUpperCase()
-  const map: Record<string, string> = {
-    PAST: 'PST', PST: 'PST',
-    PRESENT: 'PRS', PRS: 'PRS',
-    FUTURE: 'FTR', FTR: 'FTR',
-    BEYOND: 'BYD', BYD: 'BYD',
-    ETERNAL: 'ETR', ETR: 'ETR',
-    INSCRIBED: 'INS', INS: 'INS',
-  }
-  return map[s] ?? null
+  const pairs: Array<[RegExp, string]> = [
+    [/\b(?:PAST|PST)\b/, 'PST'],
+    [/\b(?:PRESENT|PRS)\b/, 'PRS'],
+    [/\b(?:FUTURE|FTR)\b/, 'FTR'],
+    [/\b(?:BEYOND|BYD)\b/, 'BYD'],
+    [/\b(?:ETERNAL|ETR)\b/, 'ETR'],
+    [/\b(?:INSCRIBED|INS)\b/, 'INS'],
+  ]
+  for (const [pattern, code] of pairs) if (pattern.test(s)) return code
+  return null
+}
+
+function normalizeLevel(levelValue: unknown, difficultyValue: unknown) {
+  const direct = String(levelValue ?? '').trim()
+  if (/^(?:[1-9]|1[0-2])\+?$/.test(direct)) return direct
+
+  const combined = String(difficultyValue ?? '').toUpperCase()
+  const match = combined.match(/(?:^|\s)((?:[1-9]|1[0-2])\+?)(?:\s|$)/)
+  return match?.[1] ?? null
 }
 
 function normalizeResult(value: unknown) {
@@ -82,8 +92,8 @@ Read the play result shown on screen and return JSON only:
 
 Rules:
 - title: the song title shown near the upper center. Do not use the artist name.
-- difficulty: one of PST, PRS, FTR, BYD, ETR, INS. Convert PAST/PRESENT/FUTURE/BEYOND/ETERNAL/INSCRIBED to those abbreviations.
-- level: displayed chart level such as 8, 8+, 9, 9+, 10, 10+, 11, 11+, 12.
+- difficulty: one of PST, PRS, FTR, BYD, ETR, INS. Convert PAST/PRESENT/FUTURE/BEYOND/ETERNAL/INSCRIBED to those abbreviations. The screen may show text like "FUTURE 9+".
+- level: displayed chart level such as 8, 8+, 9, 9+, 10, 10+, 11, 11+, 12. If the screen shows "FUTURE 9+", return difficulty "FTR" and level "9+".
 - score: the large current score in the middle. Remove separators. Do NOT use HIGH SCORE, previous score, fragments, memories, or note counts.
 - result: "L" only for TRACK LOST. Return "C" for TRACK COMPLETE, FULL RECALL, or PURE MEMORY.
 - confidence: 0..1 confidence for title+difficulty+score.
@@ -124,8 +134,7 @@ Rules:
 
         const title = String(parsed.title ?? '').trim().slice(0, 160)
         const difficulty = normalizeDifficulty(parsed.difficulty)
-        const levelRaw = String(parsed.level ?? '').trim()
-        const level = /^(?:[1-9]|1[0-2])\+?$/.test(levelRaw) ? levelRaw : null
+        const level = normalizeLevel(parsed.level, parsed.difficulty)
         const digits = String(parsed.score ?? '').replace(/[^0-9]/g, '')
         const score = digits ? Number(digits) : NaN
         const result = normalizeResult(parsed.result)
