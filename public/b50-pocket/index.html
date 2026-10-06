@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#11131a" />
   <meta name="description" content="브라우저에 저장되는 비공식 Arcaea B50 기록 관리 도구" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>B50 Pocket</title>
   <style>
 [hidden]{display:none!important}
@@ -316,6 +319,30 @@ body{background:var(--bg);color:var(--text)}
   .entry-panel,.records-panel,.image-import-panel{padding:13px}
 }
 
+
+.result-share-panel{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px;padding:13px 14px;border:1px solid var(--line);border-radius:14px;background:#0f1217}
+.result-share-copy{min-width:0}
+.result-share-copy strong{display:block;font-size:12px;font-weight:720}
+.result-share-copy span{display:block;margin-top:4px;color:#78828e;font-size:10px;line-height:1.45}
+.result-share-actions{display:flex;gap:7px;flex:0 0 auto}
+.result-share-actions button{white-space:nowrap}
+.result-dialog-body{padding-top:13px}
+.result-dialog-card{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;background:#0a0d12}
+.result-dialog-cover .cover{width:64px;height:64px;border-radius:10px}
+.result-dialog-info{min-width:0}
+.result-dialog-info strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.result-dialog-meta{margin-top:5px;color:#7f8996;font-size:10px}
+.result-dialog-score{margin-top:7px;font-size:22px;font-weight:780;letter-spacing:.025em;font-variant-numeric:tabular-nums}
+.result-dialog-status{margin-top:10px;padding:9px 10px;border-radius:9px;background:#0f141a;color:#9aa5b2;font-size:10px;line-height:1.5}
+.result-dialog-status.good{background:#0e1815;color:#8fcbb3}
+.result-dialog-status.warn{background:#19150d;color:#d6b879}
+.result-dialog-actions{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px}
+@media(max-width:560px){
+  .result-share-panel{align-items:flex-start;flex-direction:column}
+  .result-share-actions{width:100%}
+  .result-share-actions button{flex:1}
+}
+
   </style>
 </head>
 <body>
@@ -407,6 +434,17 @@ body{background:var(--bg);color:var(--text)}
           </div>
         </div>
 
+        <div class="result-share-panel">
+          <div class="result-share-copy">
+            <strong>결과 화면 공유</strong>
+            <span>앱으로 설치하면 Arcaea 결과 화면의 공유 대상에서 B50 Pocket을 선택할 수 있습니다.</span>
+          </div>
+          <div class="result-share-actions">
+            <button id="installPwaBtn" class="secondary-btn" type="button">앱 설치</button>
+            <label class="secondary-btn file-button">이미지 테스트<input id="resultImageInput" type="file" accept="image/*" hidden /></label>
+          </div>
+        </div>
+
         <div class="image-import-panel">
           <div class="image-import-head">
             <div>
@@ -466,8 +504,8 @@ body{background:var(--bg);color:var(--text)}
           <p>Arcaea Online의 <strong>B50 전체 캡처</strong>를 기록 입력에서 분석해 초기 기록을 등록합니다.</p>
         </article>
         <article class="guide-card">
-          <div class="guide-card-head"><span class="guide-num">2</span><h3>이후에는 갱신 기록만 입력</h3></div>
-          <p>초기 등록 이후에는 새 최고 기록이 생긴 곡만 검색해 갱신하면 됩니다.</p>
+          <div class="guide-card-head"><span class="guide-num">2</span><h3>결과 화면에서 바로 갱신</h3></div>
+          <p>B50 Pocket을 앱으로 설치하면 Arcaea 결과 화면의 <strong>공유</strong>에서 바로 기록을 불러올 수 있습니다.</p>
         </article>
         <article class="guide-card">
           <div class="guide-card-head"><span class="guide-num">3</span><h3>곡 데이터 자동 갱신</h3></div>
@@ -475,6 +513,27 @@ body{background:var(--bg);color:var(--text)}
         </article>
       </div>
       <button id="dismissGuideBtn" class="primary-btn" type="button" style="margin-top:14px">시작</button>
+    </form>
+  </dialog>
+
+  <dialog id="resultShareDialog" class="settings-dialog">
+    <form method="dialog">
+      <div class="dialog-head"><div><p class="section-kicker">결과 화면</p><h2 style="margin:3px 0 0">기록 확인</h2></div><button class="icon-btn" value="cancel" aria-label="닫기">×</button></div>
+      <div class="result-dialog-body">
+        <div class="result-dialog-card">
+          <div id="resultShareCover" class="result-dialog-cover"></div>
+          <div class="result-dialog-info">
+            <strong id="resultShareTitle">분석 중</strong>
+            <div id="resultShareMeta" class="result-dialog-meta">—</div>
+            <div id="resultShareScore" class="result-dialog-score">—</div>
+          </div>
+        </div>
+        <div id="resultShareStatus" class="result-dialog-status">결과 화면을 확인합니다.</div>
+        <div class="result-dialog-actions">
+          <button id="applySharedResultBtn" class="primary-btn" type="button">기록 반영</button>
+          <button id="cancelSharedResultBtn" class="secondary-btn" type="button">취소</button>
+        </div>
+      </div>
     </form>
   </dialog>
 
@@ -551,13 +610,15 @@ body{background:var(--bg);color:var(--text)}
   let scoreImageFile = null;
   let importCandidates = [];
   let ocrBusy = false;
+  let installPrompt = null;
+  let pendingSharedResult = null;
   const $ = id => document.getElementById(id);
   const qsa = (s,root=document) => [...root.querySelectorAll(s)];
 
   const els = {};
   function cacheEls(){[
     'onboarding','appShell','firstNickname','startBtn','profileName','syncBtn','settingsBtn','firstGuideDialog','dismissGuideBtn','b50Count','overallPtt','cutoffText','dbVersion','dataNotice','b50Grid','b50Empty',
-    'recommendModes','recommendHelp','recommendList','songSearch','clearSearchBtn','searchResults','selectedChart','selectedCover','selectedTitle','selectedSub','changeChartBtn','scoreForm','scoreInput','resultPicker','scorePreview','saveScoreBtn','recordFilter','recordList','scoreImageInput','imageDrop','imagePreviewWrap','imagePreview','analyzeImageBtn','clearImageBtn','ocrStatus','ocrProgressBar','ocrStatusText','ocrProgressText','importResults','importSummary','toggleImportAllBtn','importList','importSelectedBtn','settingsDialog','nicknameInput','saveNicknameBtn','settingsDbStatus','backupBtn','restoreInput','resetScoresBtn','resetProfileBtn','toast'
+    'recommendModes','recommendHelp','recommendList','songSearch','clearSearchBtn','searchResults','selectedChart','selectedCover','selectedTitle','selectedSub','changeChartBtn','scoreForm','scoreInput','resultPicker','scorePreview','saveScoreBtn','recordFilter','recordList','scoreImageInput','imageDrop','imagePreviewWrap','imagePreview','analyzeImageBtn','clearImageBtn','ocrStatus','ocrProgressBar','ocrStatusText','ocrProgressText','importResults','importSummary','toggleImportAllBtn','importList','importSelectedBtn','resultImageInput','installPwaBtn','resultShareDialog','resultShareCover','resultShareTitle','resultShareMeta','resultShareScore','resultShareStatus','applySharedResultBtn','cancelSharedResultBtn','settingsDialog','nicknameInput','saveNicknameBtn','settingsDbStatus','backupBtn','restoreInput','resetScoresBtn','resetProfileBtn','toast'
   ].forEach(id=>els[id]=$(id));}
 
   function getJSON(key,fallback){try{const s=localStorage.getItem(key);return s?JSON.parse(s):fallback}catch{return fallback}}
@@ -1534,12 +1595,129 @@ body{background:var(--bg);color:var(--text)}
   }
   function importSelectedRecords(){const picked=importCandidates.filter(x=>x.checked&&x.chart&&x.score);if(!picked.length){toast('등록할 기록을 선택해 주세요.');return}let added=0,updated=0,kept=0;for(const x of picked){const r=addOrUpdateRecord(x.chart,x.score,x.result,true,x.potential,x.rank);if(r.status==='added')added++;else if(r.status==='updated')updated++;else if(r.status==='kept')kept++}setJSON(KEYS.records,records);renderAll();toast(`${added+updated}개 반영 · ${kept}개는 기존 기록 유지`);setView('b50')}
 
+  function findResultChart(data){
+    const title=String(data&&data.title||'').trim();
+    const difficulty=String(data&&data.difficulty||'').toUpperCase();
+    if(!title||!difficulty)return null;
+    const song=bestSongMatch(title,title);
+    if(!song||song.score<.52)return null;
+    const exact=song.charts.filter(ch=>diffAbbr(ch.difficulty)===difficulty&&Number.isFinite(Number(ch.constant)));
+    if(!exact.length)return null;
+    exact.sort((a,b)=>{
+      const al=String(a.level||'')===String(data.level||'')?0:1;
+      const bl=String(b.level||'')===String(data.level||'')?0:1;
+      return al-bl;
+    });
+    return {chart:exact[0],songConfidence:song.score};
+  }
+
+  function sharedResultStatus(chart,score,result){
+    const key=chartKey(chart);
+    const existing=records.find(r=>(r.chartKey||chartKey(r))===key);
+    const next=playRating(chart.constant,score,result);
+    if(!existing)return {cls:'good',text:'새 기록으로 추가됩니다.'};
+    const old=recordRating(existing);
+    if(next>old+1e-9)return {cls:'good',text:'기존 '+formatScore(existing.score)+' → '+formatScore(score)};
+    if(Math.abs(next-old)<1e-9&&score>existing.score)return {cls:'good',text:'기존 '+formatScore(existing.score)+' → '+formatScore(score)};
+    return {cls:'',text:'기존 기록 '+formatScore(existing.score)+'이 더 높아 현재 기록을 유지합니다.'};
+  }
+
+  function showSharedResult(data){
+    const matched=findResultChart(data);
+    if(!matched){
+      pendingSharedResult=null;
+      toast('곡 또는 보면을 자동으로 연결하지 못했습니다.');
+      setView('input');
+      if(data&&data.title){els.songSearch.value=String(data.title);searchCharts()}
+      return;
+    }
+    const chart=matched.chart;
+    const score=Number(data.score)||0;
+    const result=data.result==='L'?'L':'C';
+    const confidence=Math.min(Number(data.confidence)||.5,matched.songConfidence);
+    pendingSharedResult={chart,score,result,confidence,raw:data};
+    els.resultShareCover.innerHTML=coverHTML(chart.song);
+    els.resultShareTitle.textContent=chart.song;
+    els.resultShareMeta.textContent=diffAbbr(chart.difficulty)+' '+(chart.level||'?')+' · CC '+constantText(chart.constant)+' · '+(result==='L'?'TRACK LOST':'TRACK COMPLETE');
+    els.resultShareScore.textContent=formatScore(score);
+    const status=sharedResultStatus(chart,score,result);
+    els.resultShareStatus.className='result-dialog-status '+(confidence<.72?'warn':status.cls);
+    els.resultShareStatus.textContent=confidence<.72
+      ? '인식 신뢰도가 낮습니다. 곡명, 난이도, 점수를 확인한 뒤 반영하세요.'
+      : status.text;
+    els.applySharedResultBtn.disabled=!score;
+    if(!els.resultShareDialog.open)els.resultShareDialog.showModal();
+  }
+
+  async function analyzeSingleResultFile(file){
+    if(!file||!file.type.startsWith('image/')){toast('이미지 파일을 선택해 주세요.');return}
+    toast('결과 화면 분석 중…');
+    try{
+      const form=new FormData();
+      form.append('image',file,file.name||'arcaea-result.jpg');
+      const response=await fetch('/api/result-import',{method:'POST',body:form,cache:'no-store'});
+      let data={};try{data=await response.json()}catch{}
+      if(!response.ok)throw new Error((data&&data.error)||('서버 오류 HTTP '+response.status));
+      showSharedResult(data);
+    }catch(error){
+      console.error(error);
+      toast((error&&error.message)||'결과 화면 분석에 실패했습니다.');
+    }
+  }
+
+  async function consumeSharedResult(){
+    const params=new URLSearchParams(location.search);
+    if(params.get('shared')!=='1')return;
+    if(!profile?.nickname){toast('닉네임 설정 후 공유 결과를 불러옵니다.');return}
+    try{
+      const cache=await caches.open('b50-pocket-share-v1');
+      const response=await cache.match('/b50-pocket/shared-result-image');
+      if(!response)throw new Error('공유 이미지를 찾지 못했습니다.');
+      const blob=await response.blob();
+      await cache.delete('/b50-pocket/shared-result-image');
+      history.replaceState({},'',location.pathname);
+      const ext=blob.type==='image/png'?'png':blob.type==='image/webp'?'webp':'jpg';
+      const file=new File([blob],'arcaea-result.'+ext,{type:blob.type||'image/jpeg'});
+      await analyzeSingleResultFile(file);
+    }catch(error){
+      history.replaceState({},'',location.pathname);
+      toast((error&&error.message)||'공유 이미지를 불러오지 못했습니다.');
+    }
+  }
+
+  async function installPwa(){
+    if(installPrompt){
+      const prompt=installPrompt;
+      installPrompt=null;
+      await prompt.prompt();
+      try{await prompt.userChoice}catch{}
+      return;
+    }
+    toast('브라우저 메뉴에서 ‘앱 설치’ 또는 ‘홈 화면에 추가’를 선택하세요.');
+  }
+
+  function applySharedResult(){
+    if(!pendingSharedResult)return;
+    const x=pendingSharedResult;
+    const result=addOrUpdateRecord(x.chart,x.score,x.result,true,null,null);
+    if(result.status==='added'||result.status==='updated'){
+      setJSON(KEYS.records,records);renderAll();toast(result.status==='added'?'기록을 추가했습니다':'기록을 갱신했습니다');
+    }else if(result.status==='kept'){
+      toast('기존 기록을 유지했습니다');
+    }else{
+      toast('기록을 반영하지 못했습니다');
+    }
+    pendingSharedResult=null;
+    els.resultShareDialog.close();
+    setView('b50');
+  }
+
   function toast(msg){els.toast.textContent=msg;els.toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>els.toast.classList.remove('show'),1800)}
   function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
   function backup(){const data={app:'B50 Pocket',schema:2,exportedAt:new Date().toISOString(),profile,records};downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),`b50-pocket-${new Date().toISOString().slice(0,10)}.json`);toast('백업 파일을 생성했습니다')}
   async function restore(file){try{const data=JSON.parse(await file.text());if(!Array.isArray(data.records)||!data.profile?.nickname)throw new Error();records=data.records;profile=data.profile;setJSON(KEYS.records,records);setJSON(KEYS.profile,profile);renderAll();toast(`${records.length}개 기록을 불러왔습니다`)}catch{toast('백업 파일을 읽을 수 없습니다.')}els.restoreInput.value=''}
 
-  function startProfile(){const nickname=els.firstNickname.value.trim();if(!nickname){toast('닉네임을 입력해 주세요.');els.firstNickname.focus();return}profile={nickname};records=[];setJSON(KEYS.profile,profile);setJSON(KEYS.records,records);els.onboarding.hidden=true;els.appShell.hidden=false;renderAll();toast('시작했습니다');if(!localStorage.getItem(KEYS.guideSeen))setTimeout(()=>els.firstGuideDialog.showModal(),180)}
+  function startProfile(){const nickname=els.firstNickname.value.trim();if(!nickname){toast('닉네임을 입력해 주세요.');els.firstNickname.focus();return}profile={nickname};records=[];setJSON(KEYS.profile,profile);setJSON(KEYS.records,records);els.onboarding.hidden=true;els.appShell.hidden=false;renderAll();toast('시작했습니다');if(!localStorage.getItem(KEYS.guideSeen))setTimeout(()=>els.firstGuideDialog.showModal(),180);if(new URLSearchParams(location.search).get('shared')==='1')setTimeout(consumeSharedResult,350)}
   function resetProfile(){if(!confirm('닉네임과 모든 점수 기록을 삭제하시겠습니까?'))return;localStorage.removeItem(KEYS.profile);localStorage.removeItem(KEYS.records);localStorage.removeItem(KEYS.guideSeen);profile=null;records=[];els.settingsDialog.close();els.appShell.hidden=true;els.onboarding.hidden=false;els.firstNickname.value='';els.firstNickname.focus()}
 
   function repairImportedRanksFromCandidates(){
@@ -1564,6 +1742,7 @@ body{background:var(--bg);color:var(--text)}
     els.scoreInput.addEventListener('input',()=>{const n=parseScore(els.scoreInput.value);els.scoreInput.value=n?formatScore(n):'';updatePreview()});
     qsa('[data-result]',els.resultPicker).forEach(b=>b.addEventListener('click',()=>{selectedResult=b.dataset.result;qsa('[data-result]',els.resultPicker).forEach(x=>x.classList.toggle('active',x===b));updatePreview()}));
     els.saveScoreBtn.addEventListener('click',saveScore);els.recordFilter.addEventListener('input',renderRecords);
+    els.resultImageInput.addEventListener('change',()=>{const file=els.resultImageInput.files[0];if(file)analyzeSingleResultFile(file);els.resultImageInput.value=''});els.installPwaBtn.addEventListener('click',installPwa);els.applySharedResultBtn.addEventListener('click',applySharedResult);els.cancelSharedResultBtn.addEventListener('click',()=>{pendingSharedResult=null;els.resultShareDialog.close()});
     els.scoreImageInput.addEventListener('change',()=>els.scoreImageInput.files[0]&&chooseScoreImage(els.scoreImageInput.files[0]));els.analyzeImageBtn.addEventListener('click',analyzeScoreImage);els.clearImageBtn.addEventListener('click',()=>resetImageImport(true));els.toggleImportAllBtn.addEventListener('click',()=>{const all=importCandidates.every(x=>x.checked);importCandidates.forEach(x=>x.checked=!all);renderImportCandidates()});els.importSelectedBtn.addEventListener('click',importSelectedRecords);
     qsa('[data-mode]',els.recommendModes).forEach(b=>b.addEventListener('click',()=>{recommendMode=b.dataset.mode;qsa('[data-mode]',els.recommendModes).forEach(x=>x.classList.toggle('active',x===b));renderRecommendations()}));
     els.saveNicknameBtn.addEventListener('click',()=>{const n=els.nicknameInput.value.trim();if(!n)return;profile.nickname=n;setJSON(KEYS.profile,profile);renderProfile();toast('닉네임을 변경했습니다')});
@@ -1571,7 +1750,7 @@ body{background:var(--bg);color:var(--text)}
     els.resetScoresBtn.addEventListener('click',()=>{if(!confirm('모든 점수 기록을 삭제하시겠습니까?'))return;records=[];setJSON(KEYS.records,records);renderAll();toast('점수 기록을 모두 삭제했습니다')});els.resetProfileBtn.addEventListener('click',resetProfile);
   }
 
-  async function init(){cacheEls();profile=getJSON(KEYS.profile,null);records=getJSON(KEYS.records,[]);loadCachedJackets();const cached=getJSON(KEYS.chartdb,null);if(cached?.rows&&validateDB(cached.rows))chartDB=mergePatches(cached.rows);else chartDB=mergePatches(FALLBACK_CHARTS);bind();if(profile?.nickname){els.appShell.hidden=false;renderAll()}else{els.onboarding.hidden=false;setTimeout(()=>els.firstNickname.focus(),50)}syncDB(false);syncJackets(false);if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{})}
+  async function init(){cacheEls();profile=getJSON(KEYS.profile,null);records=getJSON(KEYS.records,[]);loadCachedJackets();const cached=getJSON(KEYS.chartdb,null);if(cached?.rows&&validateDB(cached.rows))chartDB=mergePatches(cached.rows);else chartDB=mergePatches(FALLBACK_CHARTS);bind();window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;els.installPwaBtn.textContent='앱 설치'});window.addEventListener('appinstalled',()=>{installPrompt=null;els.installPwaBtn.textContent='설치됨';els.installPwaBtn.disabled=true});if(profile?.nickname){els.appShell.hidden=false;renderAll()}else{els.onboarding.hidden=false;setTimeout(()=>els.firstNickname.focus(),50)}if('serviceWorker'in navigator&&location.protocol.startsWith('http')){try{await navigator.serviceWorker.register('./sw.js')}catch{}}await syncDB(false);syncJackets(false);if(new URLSearchParams(location.search).get('share_error')==='1'){history.replaceState({},'',location.pathname);toast('공유 이미지를 받지 못했습니다.')}if(new URLSearchParams(location.search).get('shared')==='1')setTimeout(consumeSharedResult,180)}
   document.addEventListener('DOMContentLoaded',init);
 })();
 
