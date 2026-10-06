@@ -1643,10 +1643,12 @@ body{background:var(--bg);color:var(--text)}
     els.resultShareMeta.textContent=diffAbbr(chart.difficulty)+' '+(chart.level||'?')+' · CC '+constantText(chart.constant)+' · '+(result==='L'?'TRACK LOST':'TRACK COMPLETE');
     els.resultShareScore.textContent=formatScore(score);
     const status=sharedResultStatus(chart,score,result);
-    els.resultShareStatus.className='result-dialog-status '+(confidence<.72?'warn':status.cls);
-    els.resultShareStatus.textContent=confidence<.72
-      ? '인식 신뢰도가 낮습니다. 곡명, 난이도, 점수를 확인한 뒤 반영하세요.'
-      : status.text;
+    els.resultShareStatus.className='result-dialog-status '+(confidence<.72||score===0?'warn':status.cls);
+    els.resultShareStatus.textContent=score===0
+      ? '0점 결과를 인식했습니다. 공유 기능 테스트는 정상이며, 0점은 기록에 반영하지 않습니다.'
+      : confidence<.72
+        ? '인식 신뢰도가 낮습니다. 곡명, 난이도, 점수를 확인한 뒤 반영하세요.'
+        : status.text;
     els.applySharedResultBtn.disabled=!score;
     if(!els.resultShareDialog.open)els.resultShareDialog.showModal();
   }
