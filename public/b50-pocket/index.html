@@ -31,6 +31,146 @@
 .guide-note{margin-top:12px;padding:13px 14px;border:1px solid rgba(183,196,255,.18);border-radius:16px;background:rgba(183,196,255,.06);font-size:10px;line-height:1.7;color:#9ea9bd}
 @media(max-width:420px){.guide-grid{grid-template-columns:1fr}.nav-btn b{font-size:9px}}
 
+
+/* refined UI */
+:root{
+  --bg:#090b0f;--panel:#0f131a;--panel2:#141922;--line:#1e2632;--text:#f1f4f8;--muted:#7f8a9d;
+  --accent:#8faeff;--accent2:#9cb7ff;--good:#8fd3b5;--warn:#dfbd79;--danger:#e8919f;
+  --shadow:0 14px 38px rgba(0,0,0,.28);
+}
+html{background:var(--bg)}
+body{background:var(--bg);color:var(--text);font-feature-settings:"tnum" 1}
+.app-shell{max-width:1040px;padding:28px 20px 116px}
+.topbar{align-items:center;margin-bottom:22px}
+.topbar h1{font-size:28px;line-height:1.08;letter-spacing:-.035em;margin:4px 0 6px}
+.eyebrow{font-size:9px;letter-spacing:.14em;color:#71809a;font-weight:800}
+.save-state{font-size:11px;color:#6f7a8e}
+.save-dot{width:6px;height:6px;box-shadow:none;background:#79c8a5}
+.top-actions{gap:7px}
+.icon-btn{width:38px;height:38px;border-radius:11px;border-color:var(--line);background:#0e1218;font-size:18px}
+.icon-btn:hover{background:#151b24}
+
+.summary-strip{display:grid;grid-template-columns:100px 110px minmax(180px,1fr) 125px;gap:0;margin-bottom:18px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#0d1117}
+.summary-item{min-width:0;padding:13px 15px;border:0;border-right:1px solid var(--line);border-radius:0;background:transparent;gap:4px}
+.summary-item:last-child{border-right:0}
+.summary-item span{font-size:9px;letter-spacing:.02em;color:#707c90}
+.summary-item strong{font-size:14px;letter-spacing:-.015em}
+.notice{border-radius:11px;font-size:11px}
+
+.b50-grid{gap:10px}
+.b50-card{border-color:var(--line);border-radius:14px;padding:11px;grid-template-columns:72px 1fr;gap:12px;min-height:96px;background:#0f131a;box-shadow:none}
+.b50-card::after{display:none}
+.cover{width:72px;height:72px;border-radius:10px;background:#151b25}
+.card-body{gap:5px}
+.card-line{gap:7px}
+.rank{min-width:34px;font-size:13px;line-height:1;color:#8faeff;font-weight:800;font-variant-numeric:tabular-nums}
+.song-title{font-size:14px;letter-spacing:-.015em;font-weight:750}
+.chart-meta{font-size:10px;color:#778397;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.score-row{gap:7px}
+.score{font-size:18px;letter-spacing:.025em;font-weight:800}
+.grade{font-size:9px;padding:3px 6px;background:#151c27;border-color:#252f3d;color:#b7c3d7}
+.difficulty{font-size:9px;padding:3px 6px;border-radius:7px;background:#151b24;color:#c3ccda;border:1px solid #222b37}
+.difficulty .cc-mini{color:#9fb8ff}
+
+.section-head{align-items:center;margin-bottom:12px}
+.section-head h2{font-size:22px;letter-spacing:-.025em;margin:2px 0 0}
+.segmented{border-radius:10px;background:#0d1117;padding:3px}
+.seg{padding:7px 10px;border-radius:7px;font-size:10px;font-weight:750}
+.seg.active{background:#1a2230;color:#f1f4f8}
+.recommend-help{font-size:11px;color:#758196;margin-bottom:12px}
+.recommend-list{gap:9px}
+.recommend-card{border-color:var(--line);border-radius:13px;padding:10px;background:#0f131a}
+.recommend-card .cover{width:54px;height:54px;border-radius:9px}
+.recommend-main strong{font-size:12px;font-weight:750}
+.recommend-main .sub{font-size:9px;margin-top:3px;color:#788398}
+.recommend-target b{font-size:11px}
+.recommend-target span{font-size:9px}
+
+.entry-panel,.records-panel,.image-import-panel{border-color:var(--line);border-radius:14px;background:#0f131a;padding:15px;margin-bottom:12px}
+.field-label{font-size:10px;margin-bottom:6px;color:#7b879a}
+.text-input,.mini-input,.score-input{border-color:#222b37;background:#0a0e13;border-radius:10px;padding:11px 12px}
+.text-input:focus,.mini-input:focus,.score-input:focus{border-color:#617bbd;box-shadow:0 0 0 3px rgba(103,132,199,.10)}
+.text-input.big{font-size:16px;padding:13px}
+.score-input{font-size:23px}
+.search-results{border-radius:10px;background:#0b0f15}
+.search-item{padding:10px 11px}
+.selected-chart{border-radius:11px;background:#0b0f15}
+.result-picker{gap:7px}
+.result-btn{border-radius:9px;background:#0b0f15}
+.result-btn.active{border-color:#536b9f;background:#121a27}
+.preview-box{border:1px solid #1b2330;border-radius:10px;background:#0a0e13;font-size:11px}
+.primary-btn,.secondary-btn{border-radius:10px;padding:11px 14px;font-size:12px;font-weight:800}
+.primary-btn{background:#dce6ff;color:#111722}
+.secondary-btn{background:#151b24;border-color:#252f3d;color:#dce3ee}
+.text-btn{font-size:10px}
+
+.image-import-head h3{font-size:15px}
+.local-badge{font-size:9px;border-color:#27382f;background:#101b17;color:#93cbb0}
+.image-import-help{font-size:10px;color:#7b8798}
+.image-drop{min-height:116px;border-radius:11px;background:#0a0e13;border-color:#2b3544}
+.image-drop:hover{background:#0d1219;border-color:#52698f}
+.image-drop-icon{font-size:22px;color:#829ee0}
+.ocr-status,.import-list{border-radius:10px;background:#0a0e13}
+.ocr-progress{height:5px}
+.ocr-progress span{background:#8faeff}
+.constant-badge{background:#141c29;border-color:#25324a;color:#a9bded}
+.search-constant,.difficulty .cc-mini{color:#a9bded}
+
+.records-head h3{font-size:14px}
+.record-row{padding:11px 0;border-color:#1b222d}
+.record-name strong{font-size:11px;font-weight:750}
+.record-name span{font-size:9px;color:#788397}
+.record-score{font-size:11px}
+.delete-btn{border-radius:7px;background:#1a1115}
+
+.empty-state{min-height:280px;border-radius:14px;border-color:#27303d;gap:7px}
+.empty-state strong{font-size:15px}
+.empty-icon{width:54px;height:54px;border-radius:14px;background:#111720;border-color:#202938;font-size:18px}
+
+.bottom-nav{bottom:max(10px,env(safe-area-inset-bottom));width:min(calc(100% - 24px),460px);gap:2px;padding:5px;border-radius:15px;border-color:#252d39;background:rgba(10,13,18,.94);box-shadow:0 12px 36px rgba(0,0,0,.34)}
+.nav-btn{border-radius:10px;padding:7px 4px;gap:2px}
+.nav-btn span{font-size:15px}
+.nav-btn b{font-size:9px;font-weight:750}
+.nav-btn.active{background:#1a2230;color:#eef2f8}
+
+.onboarding{background:#090b0f;padding:20px}
+.onboarding-card{width:min(100%,390px);border-radius:18px;border-color:#202837;background:#0e1218;padding:24px;box-shadow:var(--shadow)}
+.brand-mark{width:52px;height:52px;border-radius:13px;margin-bottom:20px;background:#dce6ff;font-size:17px}
+.onboarding-card h1{font-size:27px}
+.privacy-note,.creator-credit{font-size:9px;color:#657186}
+.creator-credit b{color:#93a7d5}
+
+.settings-dialog{border-radius:16px;border-color:#232c39;background:#0e131a}
+.settings-dialog form{padding:16px}
+.dialog-head h2{font-size:18px}
+.settings-button{font-size:11px}
+.toast{bottom:88px;border-radius:9px;font-size:10px;background:#e8eef9;color:#10151d}
+
+.guide-intro{border-radius:14px;background:#0f131a;padding:16px}
+.guide-intro h2{font-size:21px}
+.guide-intro p{font-size:11px}
+.guide-stack{gap:9px}
+.guide-card{border-radius:13px;background:#0f131a;padding:14px}
+.guide-card-head{margin-bottom:7px}
+.guide-num{width:25px;height:25px;border-radius:7px;background:#151d2a;color:#a9bded}
+.guide-card h3{font-size:12px}
+.guide-card p{font-size:10px}
+.guide-tip{border-radius:9px;background:#0a0e13;font-size:9px}
+.guide-mini{border-radius:11px;background:#0c1016;padding:12px}
+.guide-note{border-radius:11px;background:#0d131c;border-color:#202b3b}
+
+@media(max-width:760px){
+  .app-shell{padding:18px 12px 105px}
+  .topbar{margin-bottom:16px}.topbar h1{font-size:24px}
+  .summary-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .summary-item{border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .summary-item:nth-child(2n){border-right:0}.summary-item:nth-last-child(-n+2){border-bottom:0}
+  .b50-grid,.recommend-list{grid-template-columns:1fr}
+  .b50-card{grid-template-columns:64px 1fr}.cover{width:64px;height:64px}
+  .score{font-size:17px}
+  .section-head{align-items:flex-start}
+}
+
   </style>
 </head>
 <body>
@@ -50,12 +190,12 @@
   <div class="app-shell" id="appShell" hidden>
     <header class="topbar">
       <div>
-        <p class="eyebrow">BEST 50</p>
+        <p class="eyebrow">B50 PROFILE</p>
         <h1 id="profileName">PLAYER</h1>
         <div class="save-state"><span class="save-dot"></span> 브라우저 자동 저장</div>
       </div>
       <div class="top-actions">
-        <button class="icon-btn" id="syncBtn" aria-label="곡 데이터 새로고침" title="곡 데이터 새로고침">↻</button>
+        <button class="icon-btn" id="syncBtn" aria-label="데이터 새로고침" title="데이터 새로고침">↻</button>
         <button class="icon-btn" id="settingsBtn" aria-label="설정" title="설정">⋯</button>
       </div>
     </header>
@@ -80,7 +220,7 @@
 
       <section class="view" data-view="recommend">
         <div class="section-head">
-          <div><p class="eyebrow">WHAT TO PLAY NEXT</p><h2>곡 추천</h2></div>
+          <div><p class="eyebrow">RECOMMENDATIONS</p><h2>곡 추천</h2></div>
           <div class="segmented" id="recommendModes">
             <button class="seg active" data-mode="quick">빠른 기갱</button>
             <button class="seg" data-mode="entry">하위권 재도전</button>
@@ -93,7 +233,7 @@
 
       <section class="view" data-view="input">
         <div class="section-head">
-          <div><p class="eyebrow">ADD / UPDATE SCORE</p><h2>기록 입력</h2></div>
+          <div><p class="eyebrow">SCORES</p><h2>기록 입력</h2></div>
         </div>
         <div class="entry-panel">
           <label class="field-label" for="songSearch">곡 검색</label>
@@ -118,7 +258,7 @@
               <button class="result-btn active" data-result="C">COMPLETE <small>+0.2</small></button>
               <button class="result-btn" data-result="L">LOST / EASY <small>+0</small></button>
             </div>
-            <div class="preview-box" id="scorePreview">점수를 입력하면 B50 진입 여부를 계산해.</div>
+            <div class="preview-box" id="scorePreview">점수를 입력하면 B50 진입 여부를 계산합니다.</div>
             <button id="saveScoreBtn" class="primary-btn">기록 저장</button>
           </div>
         </div>
@@ -164,7 +304,7 @@
 
       <section class="view" data-view="guide">
         <div class="guide-intro">
-          <p class="eyebrow">HOW TO USE</p>
+          <p class="eyebrow">GUIDE</p>
           <h2>사용 안내</h2>
           <p>처음 B50을 가져온 뒤에는 갱신된 기록만 추가하면 됩니다. 곡 데이터와 자켓은 주기적으로 최신 정보를 확인합니다.</p>
         </div>
@@ -496,7 +636,7 @@
           }
         }
       }
-      done++;setOCRProgress(.86+.12*(done/targets.length),'자켓으로 못 읽은 곡 찾는 중…');
+      done++;setOCRProgress(.86+.12*(done/targets.length),'자켓 기준으로 곡을 확인하는 중…');
     }
     return items;
   }
@@ -565,8 +705,8 @@
       try{const text=await fetchText(url);const parsed=mergePatches(mapCSV(text)).filter(x=>Number.isFinite(x.constant));if(validateDB(parsed)){loaded=parsed;source=label;break}}catch{}
     }
     if(loaded){chartDB=loaded;setJSON(KEYS.chartdb,{savedAt:new Date().toISOString(),rows:chartDB});renderAll();els.dataNotice.hidden=true;if(showToast)toast(`곡 DB ${dbVersion()} · ${chartDB.length}보면`);return}
-    const cached=getJSON(KEYS.chartdb,null);if(cached?.rows&&validateDB(cached.rows)){chartDB=mergePatches(cached.rows);els.dataNotice.textContent='인터넷에서 최신 곡 DB를 확인하지 못해 저장된 데이터를 사용 중이야.';els.dataNotice.hidden=false;renderAll();if(showToast)toast('저장된 곡 DB 사용 중');return}
-    chartDB=mergePatches(FALLBACK_CHARTS);els.dataNotice.textContent='최신 곡 DB를 불러오지 못해 테스트용 최소 데이터만 표시 중이야. 인터넷 연결 후 ↻을 눌러줘.';els.dataNotice.hidden=false;renderAll();if(showToast)toast('테스트용 DB 사용 중');
+    const cached=getJSON(KEYS.chartdb,null);if(cached?.rows&&validateDB(cached.rows)){chartDB=mergePatches(cached.rows);els.dataNotice.textContent='최신 곡 DB를 확인할 수 없어 저장된 데이터를 사용합니다.';els.dataNotice.hidden=false;renderAll();if(showToast)toast('저장된 곡 DB를 사용합니다.');return}
+    chartDB=mergePatches(FALLBACK_CHARTS);els.dataNotice.textContent='최신 곡 DB를 불러올 수 없습니다. 인터넷 연결 후 새로고침해 주세요.';els.dataNotice.hidden=false;renderAll();if(showToast)toast('테스트용 DB를 사용합니다.');
   }
 
   function dedupedRecords(){const m=new Map();for(const r of records){const key=r.chartKey||chartKey(r),pr=recordRating(r),old=m.get(key);if(!old||pr>recordRating(old)||(pr===recordRating(old)&&r.score>old.score))m.set(key,r)}return[...m.values()]}
@@ -580,7 +720,7 @@
     els.cutoffText.textContent=b.length>=50?`${b[49].song} · ${formatScore(b[49].score)}`:(b.length?`${b.length}개 입력됨`:'아직 없음');
     els.b50Grid.innerHTML=b.map((r,i)=>`<article class="b50-card" style="--glow:${i<10?'rgba(212,156,255,.12)':'rgba(154,174,255,.07)'}">
       ${coverHTML(r.song)}<div class="card-body"><div class="card-line"><span class="rank">#${i+1}</span><span class="song-title">${escapeHTML(r.song)}</span><span class="difficulty with-cc">${escapeHTML(diffAbbr(r.difficulty))} ${escapeHTML(r.level||'?')} <span class="cc-mini">${constantText(r.constant)}</span></span></div>
-      <div class="chart-meta">세부난이도 <b>${constantText(r.constant)}</b> · PTT <b>${recordRating(r).toFixed(3)}</b>${r.artist?` · ${escapeHTML(r.artist)}`:''}</div>
+      <div class="chart-meta">CC <b>${constantText(r.constant)}</b> · PTT <b>${recordRating(r).toFixed(3)}</b>${r.artist?` · ${escapeHTML(r.artist)}`:''}</div>
       <div class="score-row"><span class="score">${formatScore(r.score)}</span><span class="grade">${escapeHTML(grade(r.score))}${r.result==='L'?' · LOST':''}</span></div></div></article>`).join('');
   }
 
@@ -589,7 +729,7 @@
   function renderRecords(){
     const term=normalizeText(els.recordFilter.value);const all=dedupedRecords().sort((a,b)=>{const ar=Number(a.sourceRank),br=Number(b.sourceRank),ai=Number.isFinite(ar),bi=Number.isFinite(br);if(ai&&bi&&ar!==br)return ar-br;if(ai!==bi)return ai?-1:1;return recordRating(b)-recordRating(a)});
     const list=all.filter(r=>!term||normalizeText(`${r.song} ${r.artist} ${r.difficulty}`).includes(term));
-    els.recordList.innerHTML=list.length?list.map(r=>`<div class="record-row"><div class="record-name"><strong>${Number.isFinite(Number(r.sourceRank))?'#'+Number(r.sourceRank)+' ':''}${escapeHTML(r.song)}</strong><span>${escapeHTML(diffAbbr(r.difficulty))} ${escapeHTML(r.level)} · 세부 ${constantText(r.constant)} · PTT ${recordRating(r).toFixed(3)} · ${grade(r.score)}${r.result==='L'?' · LOST':''}</span></div><div class="record-score">${formatScore(r.score)}</div><button class="delete-btn" data-delete="${escapeHTML(r.id)}">×</button></div>`).join(''):'<div class="muted" style="padding:16px 0;font-size:11px">아직 저장한 기록이 없어.</div>';
+    els.recordList.innerHTML=list.length?list.map(r=>`<div class="record-row"><div class="record-name"><strong>${Number.isFinite(Number(r.sourceRank))?'#'+Number(r.sourceRank)+' ':''}${escapeHTML(r.song)}</strong><span>${escapeHTML(diffAbbr(r.difficulty))} ${escapeHTML(r.level)} · CC ${constantText(r.constant)} · PTT ${recordRating(r).toFixed(3)} · ${grade(r.score)}${r.result==='L'?' · LOST':''}</span></div><div class="record-score">${formatScore(r.score)}</div><button class="delete-btn" data-delete="${escapeHTML(r.id)}">×</button></div>`).join(''):'<div class="muted" style="padding:16px 0;font-size:11px">저장된 기록이 없습니다.</div>';
     qsa('[data-delete]',els.recordList).forEach(b=>b.addEventListener('click',()=>deleteRecord(b.dataset.delete)));
   }
 
@@ -602,7 +742,7 @@
     const potText=currentPot!=null
       ?('PTT '+currentPot.toFixed(3)+(targetPot!=null?' → '+targetPot.toFixed(3):''))
       :'';
-    return `<article class="recommend-card">${coverHTML(c.song)}<div class="recommend-main"><strong>${escapeHTML(c.song)}</strong><div class="sub">${escapeHTML(diffAbbr(c.difficulty))} ${escapeHTML(c.level||'?')} · 세부 ${constantText(c.constant)} · ${escapeHTML(note)}</div><div class="sub">${escapeHTML(potText)}</div></div><div class="recommend-target"><b>${target?formatScore(target):'—'}</b><span class="${challenge?'challenge':''}">${target?formatDelta(delta):''}</span></div></article>`
+    return `<article class="recommend-card">${coverHTML(c.song)}<div class="recommend-main"><strong>${escapeHTML(c.song)}</strong><div class="sub">${escapeHTML(diffAbbr(c.difficulty))} ${escapeHTML(c.level||'?')} · CC ${constantText(c.constant)} · ${escapeHTML(note)}</div><div class="sub">${escapeHTML(potText)}</div></div><div class="recommend-target"><b>${target?formatScore(target):'—'}</b><span class="${challenge?'challenge':''}">${target?formatDelta(delta):''}</span></div></article>`
   }
   function renderRecommendations(){
     const all=dedupedRecords(),b=b50();
@@ -629,7 +769,7 @@
       .filter(x=>x.delta>0&&x.delta<=130000&&x.target<=10000000)
       .sort((a,b)=>(a.delta/(a.gain||.01))-(b.delta/(b.gain||.01))||b.rank-a.rank)
       .slice(0,16);
-      out=ideas.map(x=>recCard(x.r,x.target,x.r.score,'작은 폭 기갱'));
+      out=ideas.map(x=>recCard(x.r,x.target,x.r.score,'소폭 갱신'));
 
     }else if(recommendMode==='entry'){
       els.recommendHelp.textContent='B50 하위권 및 저장된 비B50 기록 중 재도전 후보.';
@@ -657,7 +797,7 @@
         x.r,
         x.target,
         x.r.score,
-        x.rank==null?'B50 재진입 후보':('#'+x.rank+' 재도전'),
+        x.rank==null?'재진입 후보':('#'+x.rank+' 재도전'),
         x.delta>100000
       ));
 
@@ -684,7 +824,7 @@
         x.r,
         x.target,
         x.r.score,
-        x.r.score<9800000?'EX 재도전':(x.r.score<9900000?'EX+ 재도전':'고난도 기갱'),
+        x.r.score<9800000?'EX 재도전':(x.r.score<9900000?'EX+ 재도전':'고난도 갱신'),
         true
       ));
     }
@@ -697,12 +837,12 @@
   function renderAll(){renderProfile();renderDBStatus();renderB50();renderRecords();renderRecommendations()}
   function setView(name){qsa('.view').forEach(v=>v.classList.toggle('active',v.dataset.view===name));qsa('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.target===name));window.scrollTo({top:0,behavior:'smooth'})}
 
-  function searchCharts(){const term=normalizeText(els.songSearch.value);if(!term){els.searchResults.classList.remove('show');els.searchResults.innerHTML='';return}const matches=chartDB.filter(c=>aliases(c).some(a=>a.includes(term))).sort((a,b)=>(normalizeText(a.song).startsWith(term)?0:1)-(normalizeText(b.song).startsWith(term)?0:1)||(Number(b.constant)||0)-(Number(a.constant)||0)).slice(0,45);els.searchResults.innerHTML=matches.length?matches.map((c,i)=>`<button class="search-item" data-search-index="${i}"><div><strong>${escapeHTML(c.song)}</strong><br><span>${escapeHTML(c.artist||'')}</span></div><span>${escapeHTML(diffAbbr(c.difficulty))} ${escapeHTML(c.level)} · <b class="search-constant">${constantText(c.constant)}</b></span></button>`).join(''):'<div class="muted" style="padding:13px;font-size:11px">검색 결과가 없어.</div>';els.searchResults.classList.add('show');qsa('[data-search-index]',els.searchResults).forEach(b=>b.addEventListener('click',()=>selectChart(matches[Number(b.dataset.searchIndex)])))}
-  function selectChart(c){selectedChart=c;els.songSearch.value='';els.searchResults.classList.remove('show');els.selectedChart.hidden=false;els.scoreForm.hidden=false;els.selectedTitle.textContent=c.song;els.selectedSub.textContent=`${c.artist?c.artist+' · ':''}${diffAbbr(c.difficulty)} ${c.level} · 세부난이도 ${constantText(c.constant)}`;els.selectedCover.innerHTML=coverHTML(c.song);const old=currentRecordMap().get(chartKey(c));els.scoreInput.value=old?String(old.score):'';selectedResult=old?.result||'C';qsa('[data-result]',els.resultPicker).forEach(x=>x.classList.toggle('active',x.dataset.result===selectedResult));updatePreview();els.scoreInput.focus()}
+  function searchCharts(){const term=normalizeText(els.songSearch.value);if(!term){els.searchResults.classList.remove('show');els.searchResults.innerHTML='';return}const matches=chartDB.filter(c=>aliases(c).some(a=>a.includes(term))).sort((a,b)=>(normalizeText(a.song).startsWith(term)?0:1)-(normalizeText(b.song).startsWith(term)?0:1)||(Number(b.constant)||0)-(Number(a.constant)||0)).slice(0,45);els.searchResults.innerHTML=matches.length?matches.map((c,i)=>`<button class="search-item" data-search-index="${i}"><div><strong>${escapeHTML(c.song)}</strong><br><span>${escapeHTML(c.artist||'')}</span></div><span>${escapeHTML(diffAbbr(c.difficulty))} ${escapeHTML(c.level)} · <b class="search-constant">${constantText(c.constant)}</b></span></button>`).join(''):'<div class="muted" style="padding:13px;font-size:11px">검색 결과가 없습니다.</div>';els.searchResults.classList.add('show');qsa('[data-search-index]',els.searchResults).forEach(b=>b.addEventListener('click',()=>selectChart(matches[Number(b.dataset.searchIndex)])))}
+  function selectChart(c){selectedChart=c;els.songSearch.value='';els.searchResults.classList.remove('show');els.selectedChart.hidden=false;els.scoreForm.hidden=false;els.selectedTitle.textContent=c.song;els.selectedSub.textContent=`${c.artist?c.artist+' · ':''}${diffAbbr(c.difficulty)} ${c.level} · CC ${constantText(c.constant)}`;els.selectedCover.innerHTML=coverHTML(c.song);const old=currentRecordMap().get(chartKey(c));els.scoreInput.value=old?String(old.score):'';selectedResult=old?.result||'C';qsa('[data-result]',els.resultPicker).forEach(x=>x.classList.toggle('active',x.dataset.result===selectedResult));updatePreview();els.scoreInput.focus()}
   function clearSelection(){selectedChart=null;els.selectedChart.hidden=true;els.scoreForm.hidden=true;els.scoreInput.value='';els.songSearch.focus()}
-  function updatePreview(){if(!selectedChart)return;const score=parseScore(els.scoreInput.value);if(score<1){els.scorePreview.textContent='점수를 입력하면 B50 진입 여부를 계산해.';return}if(score>10100000){els.scorePreview.textContent='점수가 너무 커. 다시 확인해줘.';return}const pr=playRating(selectedChart.constant,score,selectedResult),rank=rankFor(pr),cut=cutoffRating();if(cut==null)els.scorePreview.textContent=`PTT ${pr.toFixed(3)} · 저장하면 현재 기록 기준 #${rank} 예상`;else if(pr>cut)els.scorePreview.textContent=`PTT ${pr.toFixed(3)} · B50 진입 예상 · 현재 기록 기준 #${Math.min(rank,50)}`;else{const need=inverseScore(cut+.00001,selectedChart.constant,'C');els.scorePreview.textContent=need&&need<=10000000?`PTT ${pr.toFixed(3)} · 50위 진입까지 약 ${formatDelta(need-score)}`:`PTT ${pr.toFixed(3)} · 현재 50위 컷은 이 보면의 최대치보다 높아.`}}
-  function saveScore(){if(!selectedChart||!Number.isFinite(selectedChart.constant)){toast('세부난이도가 있는 보면을 골라줘');return}const score=parseScore(els.scoreInput.value);if(score<100000||score>10100000){toast('점수를 다시 확인해줘');return}const key=chartKey(selectedChart),nextPR=playRating(selectedChart.constant,score,selectedResult),existing=records.find(r=>(r.chartKey||chartKey(r))===key);if(existing){const old=playRating(existing.constant,existing.score,existing.result);if(nextPR<old-1e-9||(Math.abs(nextPR-old)<1e-9&&score<=existing.score)){toast('기존 기록보다 낮아서 유지했어');return}Object.assign(existing,{song:selectedChart.song,artist:selectedChart.artist,difficulty:selectedChart.difficulty,level:selectedChart.level,constant:selectedChart.constant,score,result:selectedResult,chartKey:key,updatedAt:new Date().toISOString(),importedPotential:null,importedScore:null,sourceRank:null});toast('기록을 갱신했습니다')}else{records.push({id:`r-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,song:selectedChart.song,artist:selectedChart.artist,difficulty:selectedChart.difficulty,level:selectedChart.level,constant:selectedChart.constant,score,result:selectedResult,chartKey:key,createdAt:new Date().toISOString()});toast('기록을 저장했습니다')}setJSON(KEYS.records,records);renderAll();clearSelection();setView('b50')}
-  function deleteRecord(id){const r=records.find(x=>x.id===id);if(!r)return;if(!confirm(`“${r.song}” 기록을 삭제할까?`))return;records=records.filter(x=>x.id!==id);setJSON(KEYS.records,records);renderAll();toast('삭제했습니다')}
+  function updatePreview(){if(!selectedChart)return;const score=parseScore(els.scoreInput.value);if(score<1){els.scorePreview.textContent='점수를 입력하면 B50 진입 여부를 계산합니다.';return}if(score>10100000){els.scorePreview.textContent='점수를 다시 확인해 주세요.';return}const pr=playRating(selectedChart.constant,score,selectedResult),rank=rankFor(pr),cut=cutoffRating();if(cut==null)els.scorePreview.textContent=`PTT ${pr.toFixed(3)} · 저장하면 예상 순위 #${rank}`;else if(pr>cut)els.scorePreview.textContent=`PTT ${pr.toFixed(3)} · B50 진입 예상 · #${Math.min(rank,50)}`;else{const need=inverseScore(cut+.00001,selectedChart.constant,'C');els.scorePreview.textContent=need&&need<=10000000?`PTT ${pr.toFixed(3)} · 50위 진입까지 약 ${formatDelta(need-score)}`:`PTT ${pr.toFixed(3)} · 현재 50위 기준은 이 보면의 최대 PTT보다 높습니다.`}}
+  function saveScore(){if(!selectedChart||!Number.isFinite(selectedChart.constant)){toast('CC가 등록된 보면을 선택해 주세요.');return}const score=parseScore(els.scoreInput.value);if(score<100000||score>10100000){toast('점수를 다시 확인해 주세요.');return}const key=chartKey(selectedChart),nextPR=playRating(selectedChart.constant,score,selectedResult),existing=records.find(r=>(r.chartKey||chartKey(r))===key);if(existing){const old=playRating(existing.constant,existing.score,existing.result);if(nextPR<old-1e-9||(Math.abs(nextPR-old)<1e-9&&score<=existing.score)){toast('기존 기록보다 낮아 저장하지 않았습니다.');return}Object.assign(existing,{song:selectedChart.song,artist:selectedChart.artist,difficulty:selectedChart.difficulty,level:selectedChart.level,constant:selectedChart.constant,score,result:selectedResult,chartKey:key,updatedAt:new Date().toISOString(),importedPotential:null,importedScore:null,sourceRank:null});toast('기록을 갱신했습니다')}else{records.push({id:`r-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,song:selectedChart.song,artist:selectedChart.artist,difficulty:selectedChart.difficulty,level:selectedChart.level,constant:selectedChart.constant,score,result:selectedResult,chartKey:key,createdAt:new Date().toISOString()});toast('기록을 저장했습니다')}setJSON(KEYS.records,records);renderAll();clearSelection();setView('b50')}
+  function deleteRecord(id){const r=records.find(x=>x.id===id);if(!r)return;if(!confirm(`“${r.song}” 기록을 삭제하시겠습니까?`))return;records=records.filter(x=>x.id!==id);setJSON(KEYS.records,records);renderAll();toast('삭제했습니다')}
 
   function addOrUpdateRecord(chart,score,result='C',silent=true,importedPotential=null,sourceRank=null){
     if(!chart||!Number.isFinite(Number(chart.constant))||score<100000||score>10100000)return {status:'invalid'};
@@ -817,7 +957,7 @@
     const img=await new Promise((resolve,reject)=>{
       const url=URL.createObjectURL(file),el=new Image();
       el.onload=()=>{URL.revokeObjectURL(url);resolve(el)};
-      el.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('이 이미지 형식을 브라우저에서 읽지 못했어'))};
+      el.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('이 이미지 형식은 브라우저에서 읽을 수 없습니다.'))};
       el.src=url;
     });
 
@@ -834,7 +974,7 @@
     canvas.width=outCellW*5;
     canvas.height=outCellH*10;
     const ctx=canvas.getContext('2d',{alpha:false});
-    if(!ctx)throw new Error('이미지 캔버스를 만들지 못했어');
+    if(!ctx)throw new Error('이미지를 처리할 수 없습니다.');
     ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
     ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
 
@@ -926,8 +1066,8 @@
       const s=document.createElement('script');
       s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
       s.async=true;
-      s.onload=()=>window.Tesseract&&window.Tesseract.createWorker?resolve(window.Tesseract):reject(new Error('OCR 엔진을 불러오지 못했어'));
-      s.onerror=()=>reject(new Error('OCR 엔진 다운로드에 실패했어'));
+      s.onload=()=>window.Tesseract&&window.Tesseract.createWorker?resolve(window.Tesseract):reject(new Error('OCR 엔진을 불러올 수 없습니다.'));
+      s.onerror=()=>reject(new Error('OCR 엔진 다운로드에 실패했습니다.'));
       document.head.appendChild(s);
     });
     return tesseractLoader;
@@ -950,7 +1090,7 @@
   }
   function makeNumericSheet(sheet){
     const cw=260,ch=126,out=document.createElement('canvas');out.width=cw*5;out.height=ch*10;
-    const x=out.getContext('2d',{alpha:false});if(!x)throw new Error('숫자 OCR 캔버스를 만들지 못했어');
+    const x=out.getContext('2d',{alpha:false});if(!x)throw new Error('숫자 이미지를 처리할 수 없습니다.');
     x.fillStyle='#fff';x.fillRect(0,0,out.width,out.height);
     for(let rank=1;rank<=50;rank++){
       const col=(rank-1)%5,row=Math.floor((rank-1)/5),bx=col*320,by=row*220,dx=col*cw,dy=row*ch;
@@ -1232,7 +1372,7 @@
         : '<strong>#'+x.rank+' 곡 자동 인식 실패</strong><span>'+(x.potential!=null?'성과 '+Number(x.potential).toFixed(3)+' · ':'')+(x.level?'표시 난이도 '+escapeHTML(x.level)+' · ':'')+'자켓/곡명을 다시 맞출 수 있어.</span><input class="import-song-input" data-import-song="'+i+'" list="importSongDatalist" placeholder="곡명 검색 / 선택" value="">';
       const scoreValue=x.score?formatScore(x.score):'';
       return '<div class="import-row"><input class="import-check" type="checkbox" data-import-check="'+i+'" '+(x.checked&&x.chart&&x.score?'checked':'')+' '+(x.chart&&x.score?'':'disabled')+'><div class="import-main">'+main+'</div><div class="import-side"><input class="mini-input import-score-input" data-import-score="'+i+'" inputmode="numeric" placeholder="점수" value="'+escapeHTML(scoreValue)+'"><div class="confidence '+(x.chart?cls:'low')+'">'+(x.score?(!x.potentialOK?'상수/성과 재검토':(x.scoreDisagrees?'숫자 재검토':(x.chart?Math.round(x.confidence*100)+'%':'곡 선택 필요'))):'점수 확인 필요')+'</div></div></div>';
-    }).join('')+datalist:'<div class="muted" style="padding:16px">인식 결과가 없어.</div>';
+    }).join('')+datalist:'<div class="muted" style="padding:16px">인식 결과가 없습니다.</div>';
 
     qsa('[data-import-check]',els.importList).forEach(b=>b.addEventListener('change',()=>{importCandidates[Number(b.dataset.importCheck)].checked=b.checked;renderImportSummary()}));
     qsa('[data-import-score]',els.importList).forEach(inp=>inp.addEventListener('change',()=>{
@@ -1243,7 +1383,7 @@
       renderImportCandidates();
     }));
     qsa('[data-import-chart]',els.importList).forEach(sel=>sel.addEventListener('change',()=>{const i=Number(sel.dataset.importChart),ch=chartDB.find(x=>chartKey(x)===sel.value);if(ch){importCandidates[i].chart=ch;importCandidates[i].checked=Boolean(importCandidates[i].score);renderImportSummary()}}));
-    qsa('[data-import-song]',els.importList).forEach(inp=>inp.addEventListener('change',()=>{const i=Number(inp.dataset.importSong),v=inp.value.trim();if(!v)return;let song=uniqueSongs().find(x=>normalizeText(x.song)===normalizeText(v));if(!song){const b=bestSongMatch(v,v);if(b&&b.score>=.55)song=b}if(!song){toast('곡을 찾지 못했습니다');return}const x=importCandidates[i];if(!x.score){toast('먼저 점수를 확인해줘');return}const inf=inferChart(song,x.score,x.potential,x.level,x.result);if(!inf){toast('해당 곡의 보면을 찾지 못했습니다');return}x.chart=inf.chart;x.confidence=Math.max(x.confidence,.58);x.checked=true;renderImportCandidates()}));
+    qsa('[data-import-song]',els.importList).forEach(inp=>inp.addEventListener('change',()=>{const i=Number(inp.dataset.importSong),v=inp.value.trim();if(!v)return;let song=uniqueSongs().find(x=>normalizeText(x.song)===normalizeText(v));if(!song){const b=bestSongMatch(v,v);if(b&&b.score>=.55)song=b}if(!song){toast('곡을 찾지 못했습니다');return}const x=importCandidates[i];if(!x.score){toast('먼저 점수를 확인해 주세요.');return}const inf=inferChart(song,x.score,x.potential,x.level,x.result);if(!inf){toast('해당 곡의 보면을 찾지 못했습니다');return}x.chart=inf.chart;x.confidence=Math.max(x.confidence,.58);x.checked=true;renderImportCandidates()}));
     renderImportSummary();
   }
   function renderImportSummary(){
@@ -1257,7 +1397,7 @@
     els.importSelectedBtn.disabled=n===0;els.importSelectedBtn.textContent=n?n+'개 기록 등록':'선택한 기록 등록';
   }
   function resetImageImport(clearFile=true){if(clearFile){scoreImageFile=null;els.scoreImageInput.value='';els.imagePreview.removeAttribute('src');els.imagePreviewWrap.hidden=true;els.imageDrop.hidden=false}importCandidates=[];els.importResults.hidden=true;els.ocrStatus.hidden=true;setOCRProgress(0,'준비 중…')}
-  async function chooseScoreImage(file){if(!file||!file.type.startsWith('image/')){toast('이미지 파일을 골라줘');return}scoreImageFile=file;const info=await loadImageSize(file);els.imagePreview.src=info.url;els.imagePreview.onload=()=>URL.revokeObjectURL(info.url);els.imageDrop.hidden=true;els.imagePreviewWrap.hidden=false;els.importResults.hidden=true;els.ocrStatus.hidden=true;setTimeout(()=>analyzeScoreImage(),120)}
+  async function chooseScoreImage(file){if(!file||!file.type.startsWith('image/')){toast('이미지 파일을 선택해 주세요.');return}scoreImageFile=file;const info=await loadImageSize(file);els.imagePreview.src=info.url;els.imagePreview.onload=()=>URL.revokeObjectURL(info.url);els.imageDrop.hidden=true;els.imagePreviewWrap.hidden=false;els.importResults.hidden=true;els.ocrStatus.hidden=true;setTimeout(()=>analyzeScoreImage(),120)}
   async function analyzeScoreImage(){
     if(ocrBusy||!scoreImageFile)return;
     ocrBusy=true;els.analyzeImageBtn.disabled=true;els.ocrStatus.hidden=false;els.importResults.hidden=true;
@@ -1291,22 +1431,22 @@
       toast('비전 AI: 점수 '+scoreCount+'개 · 곡명 '+titleCount+'개 읽음');
     }catch(e){
       console.error(e);
-      const msg=(e&&e.message)||'비전 AI 분석에 실패했어';
+      const msg=(e&&e.message)||'이미지 분석에 실패했습니다.';
       setOCRProgress(0,'분석 실패 · '+msg.slice(0,45));
-      toast(msg.length<90?msg:'비전 AI 분석에 실패했어');
+      toast(msg.length<90?msg:'이미지 분석에 실패했습니다.');
     }finally{
       ocrBusy=false;els.analyzeImageBtn.disabled=false;
     }
   }
-  function importSelectedRecords(){const picked=importCandidates.filter(x=>x.checked&&x.chart&&x.score);if(!picked.length){toast('등록할 기록을 골라줘');return}let added=0,updated=0,kept=0;for(const x of picked){const r=addOrUpdateRecord(x.chart,x.score,x.result,true,x.potential,x.rank);if(r.status==='added')added++;else if(r.status==='updated')updated++;else if(r.status==='kept')kept++}setJSON(KEYS.records,records);renderAll();toast(`${added+updated}개 반영 · ${kept}개는 기존 기록 유지`);setView('b50')}
+  function importSelectedRecords(){const picked=importCandidates.filter(x=>x.checked&&x.chart&&x.score);if(!picked.length){toast('등록할 기록을 선택해 주세요.');return}let added=0,updated=0,kept=0;for(const x of picked){const r=addOrUpdateRecord(x.chart,x.score,x.result,true,x.potential,x.rank);if(r.status==='added')added++;else if(r.status==='updated')updated++;else if(r.status==='kept')kept++}setJSON(KEYS.records,records);renderAll();toast(`${added+updated}개 반영 · ${kept}개는 기존 기록 유지`);setView('b50')}
 
   function toast(msg){els.toast.textContent=msg;els.toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>els.toast.classList.remove('show'),1800)}
   function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
   function backup(){const data={app:'B50 Pocket',schema:2,exportedAt:new Date().toISOString(),profile,records};downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),`b50-pocket-${new Date().toISOString().slice(0,10)}.json`);toast('백업 파일을 생성했습니다')}
-  async function restore(file){try{const data=JSON.parse(await file.text());if(!Array.isArray(data.records)||!data.profile?.nickname)throw new Error();records=data.records;profile=data.profile;setJSON(KEYS.records,records);setJSON(KEYS.profile,profile);renderAll();toast(`${records.length}개 기록을 불러왔어`)}catch{toast('백업 파일을 읽지 못했어')}els.restoreInput.value=''}
+  async function restore(file){try{const data=JSON.parse(await file.text());if(!Array.isArray(data.records)||!data.profile?.nickname)throw new Error();records=data.records;profile=data.profile;setJSON(KEYS.records,records);setJSON(KEYS.profile,profile);renderAll();toast(`${records.length}개 기록을 불러왔어`)}catch{toast('백업 파일을 읽을 수 없습니다.')}els.restoreInput.value=''}
 
-  function startProfile(){const nickname=els.firstNickname.value.trim();if(!nickname){toast('닉네임을 입력해줘');els.firstNickname.focus();return}profile={nickname};records=[];setJSON(KEYS.profile,profile);setJSON(KEYS.records,records);els.onboarding.hidden=true;els.appShell.hidden=false;renderAll();toast('시작했습니다');if(!localStorage.getItem(KEYS.guideSeen))setTimeout(()=>els.firstGuideDialog.showModal(),180)}
-  function resetProfile(){if(!confirm('닉네임과 모든 점수 기록을 이 브라우저에서 지울까?'))return;localStorage.removeItem(KEYS.profile);localStorage.removeItem(KEYS.records);localStorage.removeItem(KEYS.guideSeen);profile=null;records=[];els.settingsDialog.close();els.appShell.hidden=true;els.onboarding.hidden=false;els.firstNickname.value='';els.firstNickname.focus()}
+  function startProfile(){const nickname=els.firstNickname.value.trim();if(!nickname){toast('닉네임을 입력해 주세요.');els.firstNickname.focus();return}profile={nickname};records=[];setJSON(KEYS.profile,profile);setJSON(KEYS.records,records);els.onboarding.hidden=true;els.appShell.hidden=false;renderAll();toast('시작했습니다');if(!localStorage.getItem(KEYS.guideSeen))setTimeout(()=>els.firstGuideDialog.showModal(),180)}
+  function resetProfile(){if(!confirm('닉네임과 모든 점수 기록을 삭제하시겠습니까?'))return;localStorage.removeItem(KEYS.profile);localStorage.removeItem(KEYS.records);localStorage.removeItem(KEYS.guideSeen);profile=null;records=[];els.settingsDialog.close();els.appShell.hidden=true;els.onboarding.hidden=false;els.firstNickname.value='';els.firstNickname.focus()}
 
   function repairImportedRanksFromCandidates(){
     if(!importCandidates.length||!records.length)return;
@@ -1335,7 +1475,7 @@
     qsa('[data-mode]',els.recommendModes).forEach(b=>b.addEventListener('click',()=>{recommendMode=b.dataset.mode;qsa('[data-mode]',els.recommendModes).forEach(x=>x.classList.toggle('active',x===b));renderRecommendations()}));
     els.saveNicknameBtn.addEventListener('click',()=>{const n=els.nicknameInput.value.trim();if(!n)return;profile.nickname=n;setJSON(KEYS.profile,profile);renderProfile();toast('닉네임을 변경했습니다')});
     els.backupBtn.addEventListener('click',backup);els.restoreInput.addEventListener('change',()=>els.restoreInput.files[0]&&restore(els.restoreInput.files[0]));
-    els.resetScoresBtn.addEventListener('click',()=>{if(!confirm('모든 점수 기록을 삭제할까?'))return;records=[];setJSON(KEYS.records,records);renderAll();toast('점수 기록을 모두 삭제했습니다')});els.resetProfileBtn.addEventListener('click',resetProfile);
+    els.resetScoresBtn.addEventListener('click',()=>{if(!confirm('모든 점수 기록을 삭제하시겠습니까?'))return;records=[];setJSON(KEYS.records,records);renderAll();toast('점수 기록을 모두 삭제했습니다')});els.resetProfileBtn.addEventListener('click',resetProfile);
   }
 
   async function init(){cacheEls();profile=getJSON(KEYS.profile,null);records=getJSON(KEYS.records,[]);loadCachedJackets();const cached=getJSON(KEYS.chartdb,null);if(cached?.rows&&validateDB(cached.rows))chartDB=mergePatches(cached.rows);else chartDB=mergePatches(FALLBACK_CHARTS);bind();if(profile?.nickname){els.appShell.hidden=false;renderAll()}else{els.onboarding.hidden=false;setTimeout(()=>els.firstNickname.focus(),50)}syncDB(false);syncJackets(false);if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{})}
