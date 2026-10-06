@@ -14,10 +14,10 @@ self.addEventListener('fetch',event=>{
         if(file instanceof File&&file.size){
           const cache=await caches.open(SHARE_CACHE);
           await cache.put(SHARE_KEY,new Response(file,{headers:{'Content-Type':file.type||'image/jpeg'}}));
-          return Response.redirect('/b50-pocket/?shared=1',303);
+          return Response.redirect(new URL('/b50-pocket/?shared=1',self.location.origin).href,303);
         }
       }catch{}
-      return Response.redirect('/b50-pocket/?share_error=1',303);
+      return Response.redirect(new URL('/b50-pocket/?share_error=1',self.location.origin).href,303);
     })());
   }
 });
