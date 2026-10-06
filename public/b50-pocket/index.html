@@ -705,7 +705,7 @@ body{background:var(--bg);color:var(--text);font-feature-settings:"tnum" 1}
       try{const text=await fetchText(url);const parsed=mergePatches(mapCSV(text)).filter(x=>Number.isFinite(x.constant));if(validateDB(parsed)){loaded=parsed;source=label;break}}catch{}
     }
     if(loaded){chartDB=loaded;setJSON(KEYS.chartdb,{savedAt:new Date().toISOString(),rows:chartDB});renderAll();els.dataNotice.hidden=true;if(showToast)toast(`곡 DB ${dbVersion()} · ${chartDB.length}보면`);return}
-    const cached=getJSON(KEYS.chartdb,null);if(cached?.rows&&validateDB(cached.rows)){chartDB=mergePatches(cached.rows);els.dataNotice.textContent='최신 곡 DB를 확인할 수 없어 저장된 데이터를 사용합니다.';els.dataNotice.hidden=false;renderAll();if(showToast)toast('저장된 곡 DB를 사용합니다.');return}
+    const cached=getJSON(KEYS.chartdb,null);if(cached?.rows&&validateDB(cached.rows)){chartDB=mergePatches(cached.rows);els.dataNotice.textContent='최신 곡 DB를 확인할 수 없습니다. 저장된 데이터를 사용합니다.';els.dataNotice.hidden=false;renderAll();if(showToast)toast('저장된 곡 DB를 사용합니다.');return}
     chartDB=mergePatches(FALLBACK_CHARTS);els.dataNotice.textContent='최신 곡 DB를 불러올 수 없습니다. 인터넷 연결 후 새로고침해 주세요.';els.dataNotice.hidden=false;renderAll();if(showToast)toast('테스트용 DB를 사용합니다.');
   }
 
