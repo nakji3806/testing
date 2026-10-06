@@ -1,0 +1,31 @@
+{
+  "name": "B50 Pocket",
+  "short_name": "B50 Pocket",
+  "description": "Arcaea B50 record tracker",
+  "start_url": "/b50-pocket/",
+  "scope": "/b50-pocket/",
+  "display": "standalone",
+  "background_color": "#090b0f",
+  "theme_color": "#090b0f",
+  "icons": [
+    {
+      "src": "/b50-pocket/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "share_target": {
+    "action": "/b50-pocket/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "image",
+          "accept": ["image/png", "image/jpeg", "image/webp"]
+        }
+      ]
+    }
+  }
+}
