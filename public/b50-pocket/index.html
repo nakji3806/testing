@@ -343,6 +343,17 @@ body{background:var(--bg);color:var(--text)}
   .result-share-actions button{flex:1}
 }
 
+
+.all-records-toggle-wrap{margin-top:14px}
+.all-records-toggle{width:100%;display:grid;grid-template-columns:1fr auto 18px;gap:8px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#0f1217;color:var(--text);text-align:left;cursor:pointer}
+.all-records-toggle span{font-size:11px;font-weight:700}
+.all-records-toggle b{color:#87919d;font-size:10px;font-weight:650}
+.all-records-toggle i{font-style:normal;color:#707986;text-align:center;transition:transform .16s ease}
+.all-records-toggle[aria-expanded="true"] i{transform:rotate(180deg)}
+.all-records-panel{margin-top:8px;margin-bottom:0}
+.record-rank-tag{display:inline-block;margin-right:6px;color:#95a8c2;font-size:9px;font-weight:700}
+.record-rank-tag.out{color:#69737f}
+
   </style>
 </head>
 <body>
@@ -386,6 +397,16 @@ body{background:var(--bg);color:var(--text)}
           <strong>등록된 B50 기록이 없습니다.</strong>
           <span>기록 입력에서 점수를 등록하세요.</span>
           <button class="secondary-btn" data-go="input">기록 입력</button>
+        </div>
+
+        <div id="allRecordsToggleWrap" class="all-records-toggle-wrap" hidden>
+          <button id="allRecordsToggle" class="all-records-toggle" type="button" aria-expanded="false">
+            <span>전체 기록 보기</span><b id="allRecordsCount">0개</b><i>⌄</i>
+          </button>
+        </div>
+        <div id="allRecordsPanel" class="records-panel all-records-panel" hidden>
+          <div class="records-head"><h3>전체 기록</h3><input id="recordFilter" class="mini-input" placeholder="곡명 검색" /></div>
+          <div id="recordList" class="record-list"></div>
         </div>
       </section>
 
@@ -478,10 +499,6 @@ body{background:var(--bg);color:var(--text)}
           </div>
         </div>
 
-        <div class="records-panel">
-          <div class="records-head"><h3>내 기록</h3><input id="recordFilter" class="mini-input" placeholder="기록 검색" /></div>
-          <div id="recordList" class="record-list"></div>
-        </div>
       </section>
 
 
@@ -619,7 +636,7 @@ body{background:var(--bg);color:var(--text)}
 
   const els = {};
   function cacheEls(){[
-    'onboarding','appShell','firstNickname','startBtn','profileName','syncBtn','settingsBtn','firstGuideDialog','dismissGuideBtn','b50Count','overallPtt','cutoffText','dbVersion','dataNotice','b50Grid','b50Empty',
+    'onboarding','appShell','firstNickname','startBtn','profileName','syncBtn','settingsBtn','firstGuideDialog','dismissGuideBtn','b50Count','overallPtt','cutoffText','dbVersion','dataNotice','b50Grid','b50Empty','allRecordsToggleWrap','allRecordsToggle','allRecordsCount','allRecordsPanel',
     'recommendModes','recommendHelp','recommendList','songSearch','clearSearchBtn','searchResults','selectedChart','selectedCover','selectedTitle','selectedSub','changeChartBtn','scoreForm','scoreInput','resultPicker','scorePreview','saveScoreBtn','recordFilter','recordList','scoreImageInput','imageDrop','imagePreviewWrap','imagePreview','analyzeImageBtn','clearImageBtn','ocrStatus','ocrProgressBar','ocrStatusText','ocrProgressText','importResults','importSummary','toggleImportAllBtn','importList','importSelectedBtn','resultImageInput','installPwaBtn','resultShareDialog','resultShareCover','resultShareTitle','resultShareMeta','resultShareScore','resultShareStatus','applySharedResultBtn','cancelSharedResultBtn','settingsDialog','nicknameInput','saveNicknameBtn','settingsDbStatus','backupBtn','restoreInput','resetScoresBtn','resetProfileBtn','toast'
   ].forEach(id=>els[id]=$(id));}
 
@@ -873,7 +890,9 @@ body{background:var(--bg);color:var(--text)}
   function overallPTT(){const b=b50();if(b.length<50)return null;const top50=b.reduce((s,r)=>s+recordRating(r),0),top10=b.slice(0,10).reduce((s,r)=>s+recordRating(r),0);return (top50+top10)/60}
 
   function renderB50(){
-    const b=b50(),ptt=overallPTT();els.b50Count.textContent=`${b.length} / 50`;els.overallPtt.textContent=ptt==null?'50개 필요':ptt.toFixed(2);els.b50Empty.hidden=b.length>0;
+    const b=b50(),ptt=overallPTT(),allCount=dedupedRecords().length;els.b50Count.textContent=`${b.length} / 50`;els.overallPtt.textContent=ptt==null?'50개 필요':ptt.toFixed(2);els.b50Empty.hidden=b.length>0;
+    els.allRecordsToggleWrap.hidden=allCount===0;els.allRecordsCount.textContent=allCount+'개';
+    els.allRecordsToggle.querySelector('span').textContent=els.allRecordsPanel.hidden?'전체 기록 보기':'전체 기록 닫기';
     els.cutoffText.textContent=b.length>=50?`${b[49].song} · ${formatScore(b[49].score)}`:(b.length?`${b.length}개 입력됨`:'아직 없음');
     els.b50Grid.innerHTML=b.map((r,i)=>`<article class="b50-card" style="--glow:${i<10?'rgba(212,156,255,.12)':'rgba(154,174,255,.07)'}">
       ${coverHTML(r.song)}<div class="card-body"><div class="card-line"><span class="rank">#${i+1}</span><span class="song-title">${escapeHTML(r.song)}</span><span class="difficulty with-cc">${escapeHTML(diffAbbr(r.difficulty))} ${escapeHTML(r.level||'?')} <span class="cc-mini">${constantText(r.constant)}</span></span></div>
@@ -884,9 +903,10 @@ body{background:var(--bg);color:var(--text)}
   function renderDBStatus(){const v=dbVersion();els.dbVersion.textContent=v==='fallback'?'테스트':v;els.settingsDbStatus.textContent=`${v} · ${chartDB.length}보면`}
   function renderProfile(){els.profileName.textContent=profile?.nickname||'PLAYER';els.nicknameInput.value=profile?.nickname||''}
   function renderRecords(){
-    const term=normalizeText(els.recordFilter.value);const all=dedupedRecords().sort((a,b)=>{const ar=Number(a.sourceRank),br=Number(b.sourceRank),ai=Number.isFinite(ar),bi=Number.isFinite(br);if(ai&&bi&&ar!==br)return ar-br;if(ai!==bi)return ai?-1:1;return recordRating(b)-recordRating(a)});
+    const term=normalizeText(els.recordFilter.value),top=b50(),rankMap=new Map(top.map((r,i)=>[(r.chartKey||chartKey(r)),i+1]));
+    const all=dedupedRecords().sort((a,b)=>recordRating(b)-recordRating(a)||b.score-a.score);
     const list=all.filter(r=>!term||normalizeText(`${r.song} ${r.artist} ${r.difficulty}`).includes(term));
-    els.recordList.innerHTML=list.length?list.map(r=>`<div class="record-row"><div class="record-name"><strong>${Number.isFinite(Number(r.sourceRank))?'#'+Number(r.sourceRank)+' ':''}${escapeHTML(r.song)}</strong><span>${escapeHTML(diffAbbr(r.difficulty))} ${escapeHTML(r.level)} · CC ${constantText(r.constant)} · PTT ${recordRating(r).toFixed(3)} · ${grade(r.score)}${r.result==='L'?' · LOST':''}</span></div><div class="record-score">${formatScore(r.score)}</div><button class="delete-btn" data-delete="${escapeHTML(r.id)}">×</button></div>`).join(''):'<div class="muted" style="padding:16px 0;font-size:11px">저장된 기록이 없습니다.</div>';
+    els.recordList.innerHTML=list.length?list.map(r=>{const rank=rankMap.get(r.chartKey||chartKey(r));return `<div class="record-row"><div class="record-name"><strong><span class="record-rank-tag ${rank?'':'out'}">${rank?'#'+rank:'B50 밖'}</span>${escapeHTML(r.song)}</strong><span>${escapeHTML(diffAbbr(r.difficulty))} ${escapeHTML(r.level)} · CC ${constantText(r.constant)} · PTT ${recordRating(r).toFixed(3)} · ${grade(r.score)}${r.result==='L'?' · LOST':''}</span></div><div class="record-score">${formatScore(r.score)}</div><button class="delete-btn" data-delete="${escapeHTML(r.id)}">×</button></div>`}).join(''):'<div class="muted" style="padding:16px 0;font-size:11px">저장된 기록이 없습니다.</div>';
     qsa('[data-delete]',els.recordList).forEach(b=>b.addEventListener('click',()=>deleteRecord(b.dataset.delete)));
   }
 
@@ -1763,7 +1783,7 @@ body{background:var(--bg);color:var(--text)}
     els.songSearch.addEventListener('input',searchCharts);els.clearSearchBtn.addEventListener('click',()=>{els.songSearch.value='';searchCharts();els.songSearch.focus()});els.changeChartBtn.addEventListener('click',clearSelection);
     els.scoreInput.addEventListener('input',()=>{const n=parseScore(els.scoreInput.value);els.scoreInput.value=n?formatScore(n):'';updatePreview()});
     qsa('[data-result]',els.resultPicker).forEach(b=>b.addEventListener('click',()=>{selectedResult=b.dataset.result;qsa('[data-result]',els.resultPicker).forEach(x=>x.classList.toggle('active',x===b));updatePreview()}));
-    els.saveScoreBtn.addEventListener('click',saveScore);els.recordFilter.addEventListener('input',renderRecords);
+    els.saveScoreBtn.addEventListener('click',saveScore);els.recordFilter.addEventListener('input',renderRecords);els.allRecordsToggle.addEventListener('click',()=>{const open=els.allRecordsPanel.hidden;els.allRecordsPanel.hidden=!open;els.allRecordsToggle.setAttribute('aria-expanded',String(open));els.allRecordsToggle.querySelector('span').textContent=open?'전체 기록 닫기':'전체 기록 보기';if(open)renderRecords()});
     els.resultImageInput.addEventListener('change',()=>{const file=els.resultImageInput.files[0];if(file)analyzeSingleResultFile(file);els.resultImageInput.value=''});els.installPwaBtn.addEventListener('click',installPwa);els.applySharedResultBtn.addEventListener('click',applySharedResult);els.cancelSharedResultBtn.addEventListener('click',()=>{pendingSharedResult=null;els.resultShareDialog.close()});
     els.scoreImageInput.addEventListener('change',()=>els.scoreImageInput.files[0]&&chooseScoreImage(els.scoreImageInput.files[0]));els.analyzeImageBtn.addEventListener('click',analyzeScoreImage);els.clearImageBtn.addEventListener('click',()=>resetImageImport(true));els.toggleImportAllBtn.addEventListener('click',()=>{const all=importCandidates.every(x=>x.checked);importCandidates.forEach(x=>x.checked=!all);renderImportCandidates()});els.importSelectedBtn.addEventListener('click',importSelectedRecords);
     qsa('[data-mode]',els.recommendModes).forEach(b=>b.addEventListener('click',()=>{recommendMode=b.dataset.mode;qsa('[data-mode]',els.recommendModes).forEach(x=>x.classList.toggle('active',x===b));renderRecommendations()}));
