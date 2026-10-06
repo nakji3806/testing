@@ -877,7 +877,7 @@ body{background:var(--bg);color:var(--text)}
   function renderB50(){
     const all=rankedRecords(),b=all.slice(0,50),ptt=overallPTT(),allCount=all.length;
     els.b50Count.textContent=allCount+'개';
-    els.overallPtt.textContent=ptt==null?'50개 필요':ptt.toFixed(2);
+    els.overallPtt.textContent=ptt==null?'50개 필요':ptt.toFixed(3);
     els.b50Empty.hidden=allCount>0;
     els.cutoffText.textContent=b.length>=50?`${b[49].song} · ${formatScore(b[49].score)}`:(b.length?`${b.length}개 입력됨`:'아직 없음');
 
@@ -1615,14 +1615,32 @@ body{background:var(--bg);color:var(--text)}
     return {chart:exact[0],songConfidence:song.score};
   }
 
+  function projectedOverallPTT(chart,score,result){
+    const map=new Map();
+    for(const r of dedupedRecords())map.set(r.chartKey||chartKey(r),r);
+    const key=chartKey(chart);
+    const candidate={...chart,score,result,chartKey:key};
+    const existing=map.get(key);
+    if(!existing||recordRating(candidate)>recordRating(existing)+1e-9||(Math.abs(recordRating(candidate)-recordRating(existing))<1e-9&&score>existing.score))map.set(key,candidate);
+    const ranked=[...map.values()].filter(r=>recordRating(r)!=null).sort((a,b)=>recordRating(b)-recordRating(a)||b.score-a.score).slice(0,50);
+    if(ranked.length<50)return null;
+    const top50=ranked.reduce((s,r)=>s+recordRating(r),0);
+    const top10=ranked.slice(0,10).reduce((s,r)=>s+recordRating(r),0);
+    return (top50+top10)/60;
+  }
+
   function sharedResultStatus(chart,score,result){
     const key=chartKey(chart);
     const existing=records.find(r=>(r.chartKey||chartKey(r))===key);
     const next=playRating(chart.constant,score,result);
-    if(!existing)return {cls:'good',text:'새 기록으로 추가됩니다.'};
+    const currentPTT=overallPTT(),projectedPTT=projectedOverallPTT(chart,score,result);
+    const effect=currentPTT!=null&&projectedPTT!=null
+      ?(projectedPTT-currentPTT>0.00005?' · PTT +'+(projectedPTT-currentPTT).toFixed(3):' · PTT 변동 없음')
+      :'';
+    if(!existing)return {cls:'good',text:'새 기록으로 추가됩니다.'+effect};
     const old=recordRating(existing);
-    if(next>old+1e-9)return {cls:'good',text:'기존 '+formatScore(existing.score)+' → '+formatScore(score)};
-    if(Math.abs(next-old)<1e-9&&score>existing.score)return {cls:'good',text:'기존 '+formatScore(existing.score)+' → '+formatScore(score)};
+    if(next>old+1e-9)return {cls:'good',text:'기존 '+formatScore(existing.score)+' → '+formatScore(score)+effect};
+    if(Math.abs(next-old)<1e-9&&score>existing.score)return {cls:'good',text:'기존 '+formatScore(existing.score)+' → '+formatScore(score)+effect};
     return {cls:'',text:'기존 기록 '+formatScore(existing.score)+'이 더 높아 현재 기록을 유지합니다.'};
   }
 
