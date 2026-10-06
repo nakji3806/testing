@@ -27,3 +27,5 @@ gradle -p android-app :app:assembleDebug
 ```
 
 The repository's Android workflow builds a debug APK and publishes the latest test APK to the fixed GitHub release tag `b50-pocket-android-test`.
+
+Initial test build: Android share-sheet receiver + live web UI.
